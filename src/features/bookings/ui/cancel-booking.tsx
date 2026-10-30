@@ -68,7 +68,7 @@ export function CancelBooking({
           </AlertDialogContent>
         </AlertDialog>
       ) : null}
-      {state.status === 'error' ? <FormAlert state={state} /> : null}
+      <FormAlert state={state} />
     </div>
   );
 }

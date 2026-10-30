@@ -77,7 +77,7 @@ describe('sign-in flows', () => {
       txn,
     );
     expect(response.headers.get('location')).toBe(`${APP}/bookings?as=host`);
-    expect(setCookie(response, TXN_COOKIE)).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/);
+    expect(setCookie(response, TXN_COOKIE)).toMatch(/Max-Age=0.*Secure|Secure.*Max-Age=0/i);
     const session = await openSession(cookieValue(setCookie(response, SESSION_COOKIE)), NOW_S);
     expect(session).toMatchObject({
       sub: 'alice',
@@ -165,7 +165,7 @@ describe('sign-in flows', () => {
       client_id: 'gaw-web',
       post_logout_redirect_uri: `${APP}/`,
     });
-    expect(setCookie(response, SESSION_COOKIE)).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/);
+    expect(setCookie(response, SESSION_COOKIE)).toMatch(/Max-Age=0.*Secure|Secure.*Max-Age=0/i);
   });
 });
 

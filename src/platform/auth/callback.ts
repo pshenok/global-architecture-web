@@ -4,7 +4,7 @@ import { getEnv } from '@/platform/config/env';
 import { log } from '@/platform/observability/log';
 import { mintCaller } from '@/platform/session/caller';
 import { unseal } from '@/platform/session/codec';
-import { readCookie, TXN_COOKIE } from '@/platform/session/cookies';
+import { expireCookie, readCookie, TXN_COOKIE } from '@/platform/session/cookies';
 import { fetchMe } from '@/platform/session/current-user';
 import { sessionKeys } from '@/platform/session/keys';
 import { nowSeconds } from '@/platform/session/policy';
@@ -35,7 +35,7 @@ export async function handleCallback(request: Request): Promise<Response> {
       status: 303,
       headers: noStore,
     });
-    response.cookies.delete(TXN_COOKIE);
+    expireCookie(response.cookies, TXN_COOKIE);
     return response;
   };
   const fail = (code: string) => to(`/auth/error?code=${code}`);

@@ -384,7 +384,7 @@ function checkConsumer(
     if (target.deep && !deepAllowed)
       problems.push(`import the platform entry @/platform/${target.entry}, not ${specifier} (R2)`);
     const users = ENTRY_USERS[target.entry];
-    if (!deepAllowed && (!users?.(here, as)))
+    if (!deepAllowed && !users?.(here, as))
       problems.push(`@/platform/${target.entry} is not for this file (R2)`);
   }
   if (target.slice === 'feature') {

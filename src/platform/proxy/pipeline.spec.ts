@@ -117,7 +117,7 @@ describe('proxy pipeline', () => {
     const cookie = await sessionCookie(testSession({ atExp: NOW_S + 5 }));
     const response = await runProxy(request('/bookings', { headers: { cookie } }), deps(refresh));
     expect(response.status).toBe(307);
-    expect(sessionWrite(response)).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+    expect(sessionWrite(response)).toMatch(/Max-Age=0.*Secure|Secure.*Max-Age=0/i);
   });
 
   it('keeps the session when the IdP is unavailable', async () => {
@@ -136,7 +136,7 @@ describe('proxy pipeline', () => {
       deps(),
     );
     expect(garbage.status).toBe(200);
-    expect(sessionWrite(garbage)).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+    expect(sessionWrite(garbage)).toMatch(/Max-Age=0.*Secure|Secure.*Max-Age=0/i);
     const refresh = vi.fn();
     const fresh = await runProxy(
       request('/bookings', { headers: { cookie: await sessionCookie() } }),

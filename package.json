@@ -28,7 +28,10 @@
     "format": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck",
     "api:sync": "node tools/api-sync.ts",
-    "api:check": "node tools/api-sync.ts --check"
+    "api:check": "node tools/api-sync.ts --check",
+    "start": "node tools/serve.ts",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

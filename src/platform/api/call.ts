@@ -22,8 +22,13 @@ const READ_DEADLINE_MS = 10_000;
 const WRITE_DEADLINE_MS = 35_000;
 
 function deadline(kind: 'read' | 'write'): AbortSignal {
-  const timeout = AbortSignal.timeout(kind === 'read' ? READ_DEADLINE_MS : WRITE_DEADLINE_MS);
-  // An abandoned render stops its calls (cacheSignal is null outside a render).
+  if (kind === 'write') {
+    // A write runs to its end even when the browser leaves: aborting it halfway would only
+    // make its outcome unknown.
+    return AbortSignal.timeout(WRITE_DEADLINE_MS);
+  }
+  // An abandoned render stops its reads (cacheSignal is null outside a render).
+  const timeout = AbortSignal.timeout(READ_DEADLINE_MS);
   const render = cacheSignal();
   return render ? AbortSignal.any([timeout, render]) : timeout;
 }
@@ -58,6 +63,8 @@ export async function settle<D, T = D>(
     result = await call;
   } catch (error) {
     if (error instanceof ApiMisuseError || error instanceof OutboundBlockedError) throw error;
+    // The render was abandoned (the browser left): nobody reads this result.
+    if (cacheSignal()?.aborted) throw error;
     const timedOut =
       error instanceof DOMException &&
       (error.name === 'TimeoutError' || error.name === 'AbortError');

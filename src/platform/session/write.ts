@@ -4,6 +4,7 @@ import { seal } from './codec';
 import {
   type CookieWriter,
   cookieOptions,
+  expireCookie,
   SESSION_COOKIE,
   TXN_COOKIE,
   TXN_MAX_AGE_S,
@@ -23,7 +24,7 @@ export async function writeSession(
 }
 
 export function clearSession(jar: CookieWriter): void {
-  jar.delete(SESSION_COOKIE);
+  expireCookie(jar, SESSION_COOKIE);
 }
 
 export async function writeTransaction(

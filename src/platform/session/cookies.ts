@@ -22,7 +22,6 @@ export interface CookieOptions {
 /** What both NextResponse.cookies (proxy) and cookies() (route handlers, actions) offer. */
 export interface CookieWriter {
   set(name: string, value: string, options: CookieOptions): unknown;
-  delete(name: string): unknown;
 }
 
 export const cookieOptions = (maxAge: number): CookieOptions => ({
@@ -32,6 +31,14 @@ export const cookieOptions = (maxAge: number): CookieOptions => ({
   path: '/',
   maxAge,
 });
+
+/**
+ * Removes a cookie. Never cookies.delete(): Next sends that without Secure, and browsers
+ * ignore a __Host- cookie's removal unless it carries Secure and Path=/ like its setting.
+ */
+export function expireCookie(jar: CookieWriter, name: string): void {
+  jar.set(name, '', cookieOptions(0));
+}
 
 /** A cookie's value from a raw request (route handlers and the proxy's tests). */
 export function readCookie(request: Request, name: string): string | undefined {

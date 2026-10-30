@@ -18,8 +18,9 @@ vi.mock('next/headers', () => ({
         : undefined;
       return value === undefined ? undefined : { name, value };
     },
-    set: () => undefined,
-    delete: (name: string) => jar.deleted.push(name),
+    set: (name: string, _value: string, options: { maxAge: number }) => {
+      if (options.maxAge === 0) jar.deleted.push(name);
+    },
   }),
 }));
 vi.mock('next/cache', () => ({

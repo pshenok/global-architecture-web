@@ -2,7 +2,7 @@ import 'server-only';
 import { NextResponse } from 'next/server';
 import { getEnv } from '@/platform/config/env';
 import { assertSameOrigin } from '@/platform/proxy/csrf';
-import { readCookie, SESSION_COOKIE } from '@/platform/session/cookies';
+import { expireCookie, readCookie, SESSION_COOKIE } from '@/platform/session/cookies';
 import { nowSeconds } from '@/platform/session/policy';
 import { openSession } from '@/platform/session/read';
 import { endSessionUrl } from './end-session';
@@ -33,6 +33,6 @@ export async function handleLogout(request: Request): Promise<Response> {
     status: 303,
     headers: { 'cache-control': 'no-store' },
   });
-  response.cookies.delete(SESSION_COOKIE);
+  expireCookie(response.cookies, SESSION_COOKIE);
   return response;
 }

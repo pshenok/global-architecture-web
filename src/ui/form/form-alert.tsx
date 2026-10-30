@@ -31,7 +31,7 @@ export function FormAlert({ state }: { state: FormState }) {
           </>
         ) : null}
         {state.requestId ? (
-          <span className="block text-xs opacity-80">Reference: {state.requestId}</span>
+          <span className="block text-xs text-muted-foreground">Reference: {state.requestId}</span>
         ) : null}
       </AlertDescription>
     </Alert>
