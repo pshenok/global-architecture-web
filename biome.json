@@ -1,0 +1,103 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!pnpm-lock.yaml",
+      "!**/.next",
+      "!**/coverage",
+      "!**/test-results",
+      "!**/playwright-report",
+      "!src/platform/api/generated",
+      "!templates/feature/contract/schema.d.ts",
+      "!contracts/**/*.json",
+      "!.claude/worktrees"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      "project": "recommended",
+      "react": "recommended",
+      "next": "recommended",
+      "test": "recommended"
+    },
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "useImportType": "off",
+        "useNodejsImportProtocol": "error",
+        "noProcessEnv": "error"
+      },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "noNestedComponentDefinitions": "error",
+        "noReactPropAssignments": "error"
+      },
+      "suspicious": {
+        "noImportCycles": "error",
+        "noExplicitAny": "error",
+        "noConsole": "error"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "error"
+      },
+      "performance": {
+        "noReExportAll": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/platform/config/env.ts",
+        "next.config.ts",
+        "src/instrumentation.ts",
+        "vitest.config.ts",
+        "playwright.config.ts",
+        "tools/**",
+        "tests/**",
+        "**/*.spec.ts",
+        "**/*.spec.tsx"
+      ],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
+      "includes": ["src/platform/observability/log.ts", "tools/**", "tests/**"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$comment": "Every route reachable without a session, with its reason; route handlers list their methods. tools/check-access.ts compares this list with src/app; src/platform/proxy compiles it into the proxy's allowlist; everything else needs a session (deny by default). [x:uuid] matches a UUID only. Changes are reviewed by the code owners of security/.",
+  "routes": [
+    { "route": "/houses", "reason": "world-readable catalogue (API: GET /v1/houses is public)" },
+    {
+      "route": "/houses/[id:uuid]",
+      "reason": "world-readable house page (API: GET /v1/houses/{id} is public)"
+    },
+    { "route": "/auth/login", "methods": ["GET"], "reason": "starts the OIDC code flow" },
+    { "route": "/auth/callback", "methods": ["GET"], "reason": "OIDC redirect target" },
+    { "route": "/auth/logout", "methods": ["POST"], "reason": "ends the session; Origin-checked" },
+    { "route": "/auth/error", "reason": "sign-in failure page" },
+    { "route": "/healthz", "methods": ["GET"], "reason": "liveness probe" }
+  ]
+}

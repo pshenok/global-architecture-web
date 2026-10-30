@@ -1,0 +1,20 @@
+packages:
+  # The only extra package: it isolates openapi-typescript's TypeScript 6 peer from the app.
+  - tools/api-codegen
+
+# ---- supply chain (pnpm 12), same as global-architecture-monolith -----------
+# New versions become installable only after 24h; transitive deps may not come
+# from git/tarball URLs; unknown install scripts fail the install.
+minimumReleaseAge: 1440
+blockExoticSubdeps: true
+strictDepBuilds: true
+engineStrict: true
+savePrefix: ""
+
+# The ONLY packages allowed to run install scripts.
+allowBuilds: {}
+
+peerDependencyRules:
+  allowedVersions:
+    # types-only codegen; the app itself compiles with TypeScript 7
+    "openapi-typescript>typescript": "6"

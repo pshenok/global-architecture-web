@@ -1,0 +1,18 @@
+{
+  "$comment": "Registry of the web app and its feature slices: local ports, the monolith checkout, each feature's dir, the API path prefixes it owns and the features it may import. Read by check-boundaries, new:feature, api-sync, dev, serve and env-files. Managed by `pnpm new:feature`.",
+  "app": { "devPort": 9300, "e2ePort": 9301, "clientId": "gaw-web" },
+  "monolith": {
+    "repo": "pshenok/global-architecture-monolith",
+    "dir": "../global-architecture-monolith"
+  },
+  "features": [
+    { "name": "users", "dir": "src/features/users", "apiPaths": ["/v1/users"], "dependsOn": [] },
+    { "name": "houses", "dir": "src/features/houses", "apiPaths": ["/v1/houses"], "dependsOn": [] },
+    {
+      "name": "bookings",
+      "dir": "src/features/bookings",
+      "apiPaths": ["/v1/bookings"],
+      "dependsOn": ["houses"]
+    }
+  ]
+}
