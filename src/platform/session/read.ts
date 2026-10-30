@@ -67,3 +67,8 @@ export async function requireCaller(): Promise<Caller> {
   if (isExpired(session, nowSeconds())) throw new IdentityUnavailableError();
   return mintCaller(session);
 }
+
+/** The email the sign-in provider shared for this login (display only; the API reads its own). */
+export async function getSignInEmail(): Promise<string | undefined> {
+  return (await getSession())?.email;
+}

@@ -15,8 +15,12 @@ export class OidcConfigurationError extends Error {
   override readonly name = 'OidcConfigurationError';
 }
 
-const CONFIG = Symbol.for('gaw.oidc.config');
-type Holder = Record<symbol, Promise<client.Configuration> | undefined>;
+/**
+ * Per module instance, not on globalThis: the proxy and the route handlers are separate
+ * bundles with their own copy of openid-client, and a Configuration made by one fails the
+ * other's instanceof check. Each bundle discovers once.
+ */
+let configuration: Promise<client.Configuration> | undefined;
 
 const isLoopbackHttp = (issuer: string) => {
   const url = new URL(issuer);
@@ -77,16 +81,17 @@ async function discover(): Promise<client.Configuration> {
 }
 
 export function getOidcConfig(): Promise<client.Configuration> {
-  const holder = globalThis as unknown as Holder;
-  const existing = holder[CONFIG];
-  if (existing) return existing;
-  const pending = discover().catch((error: unknown) => {
-    holder[CONFIG] = undefined;
+  configuration ??= discover().catch((error: unknown) => {
+    configuration = undefined;
     log.error('oidc discovery failed', { reason: error instanceof Error ? error.name : 'unknown' });
     throw error;
   });
-  holder[CONFIG] = pending;
-  return pending;
+  return configuration;
+}
+
+/** Tests only: forget the discovered configuration. */
+export function resetOidcConfig(): void {
+  configuration = undefined;
 }
 
 const isTimeout = (error: unknown) =>

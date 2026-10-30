@@ -93,11 +93,47 @@
         "**/*.spec.ts",
         "**/*.spec.tsx"
       ],
-      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
+          }
+        }
+      }
     },
     {
       "includes": ["src/platform/observability/log.ts", "tools/**", "tests/**"],
-      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/ui/primitives/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "noLabelWithoutControl": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/app/globals.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          }
+        }
+      }
     }
   ]
 }

@@ -1,6 +1,6 @@
 import 'server-only';
 import type { Route } from 'next';
-import { refresh } from 'next/cache';
+import { refresh, revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { z } from 'zod';
@@ -37,8 +37,9 @@ export interface ActionContext {
 
 export type ActionOutcome =
   | { readonly kind: 'done'; readonly message?: string }
-  | { readonly kind: 'refresh'; readonly message?: string }
-  | { readonly kind: 'redirect'; readonly to: string }
+  | { readonly kind: 'refresh'; readonly message?: string; readonly shell?: 'stale' }
+  /** shell: 'stale' when the action changed who the user is (registration, a rename). */
+  | { readonly kind: 'redirect'; readonly to: string; readonly shell?: 'stale' }
   /** Ends the session and signs out at the IdP (account deletion). */
   | { readonly kind: 'logout' };
 
@@ -224,6 +225,11 @@ export function defineAction<S extends z.ZodObject, F extends Extract<keyof z.in
     if (decision.kind === 'state') return decision.state;
     // Interrupts and refreshes run here, outside every try block.
     const { outcome } = decision;
+    // Layouts keep their render across navigations; the shell shows the user, so an
+    // identity change re-renders from the root layout down.
+    if ((outcome.kind === 'refresh' || outcome.kind === 'redirect') && outcome.shell === 'stale') {
+      revalidatePath('/', 'layout');
+    }
     switch (outcome.kind) {
       case 'done':
         return { status: 'success', ...(outcome.message ? { message: outcome.message } : {}) };
@@ -231,6 +237,14 @@ export function defineAction<S extends z.ZodObject, F extends Extract<keyof z.in
         refresh();
         return { status: 'success', ...(outcome.message ? { message: outcome.message } : {}) };
       case 'redirect':
+        // Same-site paths only: an action never sends anyone elsewhere (logout has its own path).
+        if (
+          !outcome.to.startsWith('/') ||
+          outcome.to.startsWith('//') ||
+          outcome.to.includes('\\')
+        ) {
+          throw new Error('defineAction: redirect outcomes take a same-site path');
+        }
         return redirect(outcome.to as Route);
       case 'logout': {
         const session = await getSession();

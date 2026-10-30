@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { HttpResponse, http } from 'msw/http';
+import { resetOidcConfig } from '@/platform/auth/oidc';
 import { IDP, mswServer } from './msw';
 
 /**
@@ -80,6 +81,6 @@ export function useIdp(): void {
 
 /** Forgets the memoized discovery (the OIDC config is cached per process). */
 export function resetOidc(): void {
-  (globalThis as Record<symbol, unknown>)[Symbol.for('gaw.oidc.config')] = undefined;
+  resetOidcConfig();
   for (const key of Object.keys(idpState)) delete idpState[key as keyof IdpState];
 }
