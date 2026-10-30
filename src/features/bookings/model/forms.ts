@@ -3,7 +3,7 @@ import { isCalendarDate, nightsBetween } from '@/kernel/dates';
 import type { ApiProblem, KnownProblemCode } from '@/kernel/problem-codes';
 
 /** The monolith's limit (bookings module MAX_NIGHTS); the API stays the authority. */
-export const MAX_NIGHTS = 30;
+const MAX_NIGHTS = 30;
 
 const calendarDate = (label: string) =>
   z.string().refine(isCalendarDate, `Choose the ${label} date`);

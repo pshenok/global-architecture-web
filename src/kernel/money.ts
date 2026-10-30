@@ -22,7 +22,7 @@ const EXPONENTS: Readonly<Record<string, number>> = {
 /** Currencies the forms offer (all with a known exponent). */
 export const CURRENCIES = Object.keys(EXPONENTS);
 
-export function currencyExponent(currencyCode: string): number | undefined {
+function currencyExponent(currencyCode: string): number | undefined {
   return EXPONENTS[currencyCode];
 }
 

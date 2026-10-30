@@ -2,7 +2,7 @@ import 'server-only';
 import type { ApiProblem, FieldProblem } from '@/kernel/problem-codes';
 
 /** A JSON body that looks like the monolith's problem details (checked at run time). */
-export function isProblemDetails(body: unknown): body is {
+function isProblemDetails(body: unknown): body is {
   status: number;
   code: string;
   title?: string;

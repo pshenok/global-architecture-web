@@ -12,7 +12,11 @@ export const registerUser = defineAction({
   messages: USER_MESSAGES,
   run: async ({ caller }, { fullName, returnTo }) => {
     const result = await users.registerUser(caller, fullName);
-    const done = { kind: 'redirect' as const, to: safeLocalPath(returnTo), shell: 'stale' as const };
+    const done = {
+      kind: 'redirect' as const,
+      to: safeLocalPath(returnTo),
+      shell: 'stale' as const,
+    };
     if (!result.ok && result.problem.code === 'USER_ALREADY_REGISTERED') return done;
     return result.ok ? done : result;
   },

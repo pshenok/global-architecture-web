@@ -4,7 +4,7 @@ import { MoneyText } from '@/ui/money-text';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/ui/primitives/card';
 import type { House } from '../model/house';
 
-export function HouseCard({ house }: { house: House }) {
+function HouseCard({ house }: { house: House }) {
   return (
     <Card className="relative transition-colors hover:bg-muted/40">
       <CardHeader>

@@ -20,7 +20,7 @@ export interface IdpState {
 
 export const idpState: IdpState = {};
 
-export const idToken = (claims: Record<string, unknown>) =>
+const idToken = (claims: Record<string, unknown>) =>
   new SignJWT({
     iss: IDP,
     aud: 'gaw-web',

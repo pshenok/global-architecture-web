@@ -16,7 +16,8 @@
       "!src/platform/api/generated",
       "!templates/feature/contract/schema.d.ts",
       "!contracts/**/*.json",
-      "!.claude/worktrees"
+      "!.claude/worktrees",
+      "!tests/probes"
     ]
   },
   "formatter": {

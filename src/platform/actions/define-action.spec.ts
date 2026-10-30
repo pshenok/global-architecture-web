@@ -22,7 +22,10 @@ vi.mock('next/headers', () => ({
     delete: (name: string) => jar.deleted.push(name),
   }),
 }));
-vi.mock('next/cache', () => ({ refresh: () => (refreshed.count += 1), revalidatePath: () => undefined }));
+vi.mock('next/cache', () => ({
+  refresh: () => (refreshed.count += 1),
+  revalidatePath: () => undefined,
+}));
 vi.mock('@/platform/http/request-context', () => ({
   requestId: async () => 'req-action',
   currentPath: async () => '/houses/new',

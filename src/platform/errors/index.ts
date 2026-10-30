@@ -1,3 +1,3 @@
 import 'server-only';
 
-export { classifyReadProblem, orInterrupt, UpstreamError } from './interrupts';
+export { orInterrupt } from './interrupts';

@@ -11,7 +11,7 @@ import { RefreshGrantError, type RefreshOutcome } from '@/platform/session/refre
  * process; a failed discovery is not cached, so the next request tries again.
  */
 
-export class OidcConfigurationError extends Error {
+class OidcConfigurationError extends Error {
   override readonly name = 'OidcConfigurationError';
 }
 
@@ -31,7 +31,7 @@ const isLoopbackHttp = (issuer: string) => {
  * Fails closed unless the browser-facing endpoints are on the issuer's origin (keeps CSP
  * form-action exact) and the back-channel ones on the issuer's or OIDC_EXTRA_ORIGINS.
  */
-export function validateDiscovery(
+function validateDiscovery(
   metadata: client.ServerMetadata,
   issuer: string,
   extraOrigins: readonly string[],
@@ -118,7 +118,7 @@ export async function refreshGrant(refreshToken: string) {
   }
 }
 
-export function classifyGrantError(
+function classifyGrantError(
   error: unknown,
 ): Extract<RefreshOutcome, { kind: 'ended' | 'unavailable' }> {
   if (error instanceof client.ResponseBodyError) {

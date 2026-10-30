@@ -55,5 +55,4 @@ export function createClassifier(
   };
 }
 
-export const PUBLIC_ROUTES: readonly PublicRoute[] = registry.routes;
-export const classify = createClassifier(PUBLIC_ROUTES);
+export const classify = createClassifier(registry.routes);

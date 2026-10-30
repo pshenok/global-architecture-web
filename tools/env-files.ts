@@ -8,7 +8,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, readMonolithRegistry, readRegistry } from './lib.ts';
 
-export const ENV_FILE = join(ROOT, '.env.local');
+const ENV_FILE = join(ROOT, '.env.local');
 
 export function ensureEnvFile(): boolean {
   if (existsSync(ENV_FILE)) return false;

@@ -22,9 +22,9 @@
   },
   "scripts": {
     "dev": "node tools/dev.ts",
-    "build": "next build",
+    "build": "next build && node tools/check-build.ts",
     "typecheck": "next typegen && tsc -p tsconfig.json",
-    "lint": "biome ci .",
+    "lint": "next typegen && biome ci . && node tools/check-access.ts && node tools/check-boundaries.ts && node tools/check-text.ts && oxlint && knip",
     "format": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck",
     "api:sync": "node tools/api-sync.ts",

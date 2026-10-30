@@ -34,7 +34,7 @@ export interface ProxyDeps {
 
 let refresher: ((session: Session) => Promise<RefreshOutcome>) | undefined;
 
-export function defaultDeps(): ProxyDeps {
+function defaultDeps(): ProxyDeps {
   refresher ??= createRefresher({ grant: refreshGrant, now: () => Date.now() });
   return {
     env: getEnv(),

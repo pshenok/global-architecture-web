@@ -4,7 +4,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
-export const REGISTRY_PATH = join(ROOT, 'features.json');
+const REGISTRY_PATH = join(ROOT, 'features.json');
 
 export interface FeatureEntry {
   /** e.g. `houses` (the plural noun, like the monolith module it pairs with). */

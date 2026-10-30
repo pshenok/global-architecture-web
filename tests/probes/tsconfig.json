@@ -1,0 +1,7 @@
+{
+  "$comment": "Guardrail self-test inputs: parsed by tools/check-*.ts, never compiled or run. Each probe says which file it pretends to be (// as: <path>).",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": []
+}

@@ -132,6 +132,3 @@ export function getEnv(): Env {
   cached ??= parseEnv(process.env);
   return cached;
 }
-
-/** True when the app runs on http://localhost (development and e2e). */
-export const isLocalHttp = (env: Env) => env.APP_ORIGIN.startsWith('http://');

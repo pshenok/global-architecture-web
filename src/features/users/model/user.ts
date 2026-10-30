@@ -6,5 +6,3 @@ export interface User {
   readonly roles: readonly string[];
   readonly createdAt: string;
 }
-
-export const isAdmin = (user: Pick<User, 'roles'>) => user.roles.includes('admin');

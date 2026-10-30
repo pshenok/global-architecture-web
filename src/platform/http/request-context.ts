@@ -5,8 +5,8 @@ import { headers } from 'next/headers';
  * Per-request values the proxy put on the request (src/platform/proxy): the request id it
  * generated (any inbound one is overwritten) and the path + query, for returnTo.
  */
-export const REQUEST_ID_HEADER = 'x-request-id';
-export const PATH_HEADER = 'x-gaw-path';
+const REQUEST_ID_HEADER = 'x-request-id';
+const PATH_HEADER = 'x-gaw-path';
 
 export async function requestId(): Promise<string> {
   return (await headers()).get(REQUEST_ID_HEADER) ?? 'unknown';

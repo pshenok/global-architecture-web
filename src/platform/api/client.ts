@@ -15,7 +15,7 @@ export class ApiMisuseError extends Error {
  * never sent to a public operation (an expired cookie would turn the public catalogue into
  * a 401), and a protected one is never called anonymously.
  */
-export const guard: Middleware = {
+const guard: Middleware = {
   onRequest({ request, schemaPath }) {
     const key = `${request.method} ${schemaPath}`;
     const security = (OPERATIONS as Readonly<Record<string, 'none' | 'bearer'>>)[key];

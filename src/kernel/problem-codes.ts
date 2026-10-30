@@ -4,7 +4,7 @@
  * in the OpenAPI document, so review this list whenever the monolith adds or renames one.
  * Branch on `code`, never on `detail` or `title`.
  */
-export const API_PROBLEM_CODES = [
+const API_PROBLEM_CODES = [
   // generic
   'VALIDATION_FAILED',
   'NOT_FOUND',
