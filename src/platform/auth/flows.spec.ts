@@ -169,6 +169,72 @@ describe('sign-in flows', () => {
   });
 });
 
+describe('provider configuration and outages', () => {
+  beforeEach(() => {
+    resetOidc();
+  });
+
+  it.each([
+    [
+      'an authorization endpoint on another origin',
+      { authorization_endpoint: 'https://evil.test/authorize' },
+    ],
+    ['no PKCE S256', { code_challenge_methods_supported: ['plain'] }],
+    [
+      'a token endpoint outside the allowed origins',
+      { token_endpoint: 'https://tokens.evil.test/token' },
+    ],
+  ])('refuses a provider with %s', async (_label, override) => {
+    mswServer.use(
+      http.get(`${IDP}/.well-known/openid-configuration`, () =>
+        HttpResponse.json({
+          issuer: IDP,
+          authorization_endpoint: `${IDP}/authorize`,
+          token_endpoint: `${IDP}/token`,
+          jwks_uri: `${IDP}/jwks.json`,
+          code_challenge_methods_supported: ['S256'],
+          ...override,
+        }),
+      ),
+    );
+    const response = await handleLogin(new Request(`${APP}/auth/login`));
+    expect(response.headers.get('location')).toBe(`${APP}/auth/error?code=IDP_UNAVAILABLE`);
+  });
+
+  it('keeps the session but says so when the API is down at sign-in', async () => {
+    useIdp();
+    mswServer.use(http.get(`${API}/v1/users/me`, () => HttpResponse.error()));
+    const { txn, authorize } = await startLogin();
+    const response = await callback(
+      `code=c1&state=${authorize.searchParams.get('state')}&iss=${encodeURIComponent(IDP)}`,
+      txn,
+    );
+    expect(response.headers.get('location')).toBe(`${APP}/auth/error?code=API_UNAVAILABLE`);
+    expect(setCookie(response, SESSION_COOKIE)).toBeTruthy();
+  });
+
+  it('logs out to the home page when the provider has no end-session endpoint', async () => {
+    mswServer.use(
+      http.get(`${IDP}/.well-known/openid-configuration`, () =>
+        HttpResponse.json({
+          issuer: IDP,
+          authorization_endpoint: `${IDP}/authorize`,
+          token_endpoint: `${IDP}/token`,
+          jwks_uri: `${IDP}/jwks.json`,
+          code_challenge_methods_supported: ['S256'],
+        }),
+      ),
+    );
+    const response = await handleLogout(
+      new Request(`${APP}/auth/logout`, {
+        method: 'POST',
+        headers: { cookie: await sessionCookie(), origin: APP },
+      }),
+    );
+    expect(response.headers.get('location')).toBe(`${APP}/`);
+  });
+});
+
 describe('refresh grant', () => {
   beforeEach(() => {
     resetOidc();

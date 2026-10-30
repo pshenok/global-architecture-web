@@ -8,16 +8,10 @@
   },
   "workspaces": {
     ".": {
-      "entry": ["tools/*.ts", "tests/support/*.ts"],
+      "entry": ["tools/*.ts", "tests/support/*.ts", "tests/e2e/**/*.setup.ts"],
       "project": ["src/**/*.{ts,tsx}", "tools/**/*.ts", "tests/**/*.ts"],
       "ignore": ["tests/probes/**"],
-      "ignoreDependencies": [
-        "@axe-core/playwright",
-        "axe-core",
-        "vitest-browser-react",
-        "tailwindcss",
-        "tw-animate-css"
-      ]
+      "ignoreDependencies": ["tailwindcss", "tw-animate-css"]
     },
     "tools/api-codegen": {}
   }

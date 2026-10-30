@@ -23,15 +23,16 @@
   "scripts": {
     "dev": "node tools/dev.ts",
     "build": "next build && node tools/check-build.ts",
-    "typecheck": "next typegen && tsc -p tsconfig.json",
+    "typecheck": "next typegen && tsc -p tsconfig.json && tsc -p tools/tsconfig.json",
     "lint": "next typegen && biome ci . && node tools/check-access.ts && node tools/check-boundaries.ts && node tools/check-text.ts && oxlint && knip",
     "format": "biome check --write .",
-    "check": "pnpm lint && pnpm typecheck",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm api:check",
     "api:sync": "node tools/api-sync.ts",
     "api:check": "node tools/api-sync.ts --check",
     "start": "node tools/serve.ts",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --project unit --coverage"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

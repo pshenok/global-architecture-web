@@ -73,7 +73,14 @@
   },
   "overrides": [
     {
-      "files": ["**/*.spec.ts", "**/*.spec.tsx", "tests/**", "**/testing.ts", "tools/**"],
+      "files": [
+        "**/*.spec.ts",
+        "**/*.spec.tsx",
+        "tests/**",
+        "**/testing.ts",
+        "tools/**",
+        "playwright.config.ts"
+      ],
       "rules": {
         "typescript/no-unsafe-assignment": "off",
         "typescript/no-unsafe-return": "off",

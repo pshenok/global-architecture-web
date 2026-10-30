@@ -34,6 +34,14 @@ export default defineConfig({
     ],
   },
   test: {
+    // A ratchet on the security core only (pnpm test:coverage, in CI): raise it, never lower it.
+    coverage: {
+      provider: 'v8',
+      include: ['src/platform/{proxy,session,auth,net,api,actions}/**'],
+      exclude: ['**/generated/**', '**/*.spec.ts', '**/testing.ts', '**/index.ts'],
+      reporter: ['text-summary'],
+      thresholds: { statements: 94, branches: 84, functions: 94, lines: 95 },
+    },
     projects: [
       {
         extends: true,

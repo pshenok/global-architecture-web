@@ -71,16 +71,9 @@ test.describe('session', () => {
     // Five tabs at once with the same expired cookie: the dev IdP revokes the login on
     // any refresh-token reuse, so a race would sign everyone out.
     const tabs = await Promise.all(Array.from({ length: 5 }, () => context.newPage()));
+    const paths = ['/bookings', '/account', '/houses/mine', '/bookings?as=host', '/houses/new'];
     const statuses = await Promise.all(
-      tabs.map(async (tab, i) =>
-        (
-          await tab.goto(
-            ['/bookings', '/account', '/houses/mine', '/bookings?as=host', '/houses/new'][
-              i
-            ] as string,
-          )
-        )?.status(),
-      ),
+      tabs.map(async (tab, i) => (await tab.goto(paths[i] ?? '/'))?.status()),
     );
     expect(statuses).toEqual([200, 200, 200, 200, 200]);
     for (const tab of tabs) await expect(tab).not.toHaveURL(/authorize|auth\/error/);
