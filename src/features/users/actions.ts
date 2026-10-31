@@ -47,9 +47,9 @@ export const deleteUser = defineAction({
   access: 'admin',
   input: UserIdForm,
   messages: USER_MESSAGES,
-  successCodes: ['USER_NOT_FOUND'],
   run: async ({ caller }, { id }) => {
     const result = await users.deleteUser(caller, id);
-    return result.ok ? { kind: 'redirect', to: '/admin/users' } : result;
+    const gone = !result.ok && result.problem.code === 'USER_NOT_FOUND';
+    return result.ok || gone ? { kind: 'redirect', to: '/admin/users' } : result;
   },
 });

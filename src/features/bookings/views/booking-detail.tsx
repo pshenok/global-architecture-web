@@ -13,7 +13,7 @@ import { PageHeader } from '@/ui/page-header';
 import { StayDates } from '@/ui/stay-dates';
 import { cancelBooking } from '../actions';
 import { getBooking } from '../data/bookings.gateway';
-import { canCancel } from '../model/booking';
+import { canCancel, houseLabel } from '../model/booking';
 import { CancelBooking } from '../ui/cancel-booking';
 
 export async function BookingDetailView({ params }: { params: Promise<{ id: string }> }) {
@@ -22,11 +22,12 @@ export async function BookingDetailView({ params }: { params: Promise<{ id: stri
   if (!z.uuid().safeParse(id).success) notFound();
   // Someone else's booking is a 404 from the API, before anything streams.
   const booking = await orInterrupt(getBooking(caller, id));
-  const house = await findHouseSummary(booking.houseId);
+  const lookup = await findHouseSummary(booking.houseId);
+  const house = lookup.status === 'found' ? lookup.house : undefined;
   const role = booking.guestId === me.id ? 'Your stay' : 'A stay at your house';
   return (
     <>
-      <PageHeader title={house ? house.title : 'House no longer listed'} description={role} />
+      <PageHeader title={houseLabel(lookup)} description={role} />
       <div className="mb-8">
         <CancelBooking
           action={cancelBooking}

@@ -1,6 +1,6 @@
 import type { NavEntry } from '@/ui/app-shell';
 
-export type { House, HouseSummary } from './model/house';
+export type { House, HouseLookup, HouseSummary } from './model/house';
 
 export const nav: readonly NavEntry[] = [
   { href: '/houses', label: 'Houses', audience: 'everyone' },

@@ -1,6 +1,6 @@
 import 'server-only';
 import { LogInIcon } from 'lucide-react';
-import { findHouseSummary } from '@/features/houses/server';
+import { getHouseSummary } from '@/features/houses/server';
 import { todayUtc } from '@/kernel/dates';
 import { getOptionalCaller } from '@/platform/session';
 import { buttonVariants } from '@/ui/primitives/button';
@@ -11,8 +11,7 @@ import { BookingForm } from '../ui/booking-form';
 /** The booking card on a house page (the app route composes it next to the house). */
 export async function BookingPanelView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [house, caller] = await Promise.all([findHouseSummary(id), getOptionalCaller()]);
-  if (!house) return null;
+  const [house, caller] = await Promise.all([getHouseSummary(id), getOptionalCaller()]);
   return (
     <Card className="max-w-xl">
       <CardHeader>

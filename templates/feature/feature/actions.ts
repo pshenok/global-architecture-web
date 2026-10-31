@@ -35,9 +35,10 @@ export const updateSampleItem = defineAction({
 export const deleteSampleItem = defineAction({
   access: 'user',
   input: DeleteSampleItemForm,
-  successCodes: ['SAMPLE_ITEM_NOT_FOUND'],
   run: async ({ caller }, { id }) => {
     const result = await sampleItems.deleteSampleItem(caller, id);
-    return result.ok ? { kind: 'redirect', to: '/sample-items' } : result;
+    // Already gone (deleted in another tab): the same place as a successful delete.
+    const gone = !result.ok && result.problem.code === 'SAMPLE_ITEM_NOT_FOUND';
+    return result.ok || gone ? { kind: 'redirect', to: '/sample-items' } : result;
   },
 });

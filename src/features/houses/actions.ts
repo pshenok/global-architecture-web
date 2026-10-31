@@ -38,9 +38,11 @@ export const deleteHouse = defineAction({
   access: 'user',
   input: DeleteHouseForm,
   messages: HOUSE_MESSAGES,
-  successCodes: ['HOUSE_NOT_FOUND'],
   run: async ({ caller }, { id }) => {
     const result = await houses.deleteHouse(caller, id);
-    return result.ok ? { kind: 'redirect', to: '/houses/mine' } : result;
+    // Already gone (deleted in another tab): the same place as a successful delete, not
+    // a refresh of a page that no longer exists.
+    const gone = !result.ok && result.problem.code === 'HOUSE_NOT_FOUND';
+    return result.ok || gone ? { kind: 'redirect', to: '/houses/mine' } : result;
   },
 });

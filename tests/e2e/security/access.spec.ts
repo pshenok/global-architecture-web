@@ -32,13 +32,20 @@ test.describe('access', () => {
     expect((await page.goto('/houses/01890a5d-ac96-774b-bcce-b302099a8057'))?.status()).toBe(404);
   });
 
-  test('a returnTo that leaves the site is ignored', async ({ page }) => {
-    for (const target of ['//evil.test/x', 'https://evil.test/x', '/\\evil.test']) {
+  test('a returnTo that leaves the site is ignored after sign-in', async ({ page }) => {
+    // A registered login (the guest persona's subject): the callback goes straight to
+    // returnTo, so only the sanitizing keeps it on this site.
+    for (const target of [
+      '//evil.test/x',
+      'https://evil.test/x',
+      '/\\evil.test',
+      '/\t/evil.test/x',
+    ]) {
       await page.context().clearCookies();
       await page.goto(`/auth/login?returnTo=${encodeURIComponent(target)}`);
-      await page.getByLabel('Subject (login id)').fill(`e2e-${runId()}-redirect`);
+      await page.getByLabel('Subject (login id)').fill(`e2e-${runId()}-guest`);
       await page.getByRole('button', { name: 'Sign in' }).click();
-      await expect(page).toHaveURL(/^http:\/\/localhost:9301\//);
+      await expect(page).toHaveURL('http://localhost:9301/houses');
     }
   });
 

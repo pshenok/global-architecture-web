@@ -22,6 +22,12 @@ export interface HouseSummary {
   readonly maxGuests: number;
 }
 
+/** A house another feature asked about. */
+export type HouseLookup =
+  | { readonly status: 'found'; readonly house: HouseSummary }
+  | { readonly status: 'gone' }
+  | { readonly status: 'unavailable' };
+
 export const toSummary = (house: House): HouseSummary => ({
   id: house.id,
   ownerId: house.ownerId,

@@ -1,6 +1,6 @@
 import type { Route } from 'next';
 import Link from 'next/link';
-import type { HouseSummary } from '@/features/houses';
+import type { HouseLookup } from '@/features/houses';
 import { MoneyText } from '@/ui/money-text';
 import {
   Table,
@@ -12,14 +12,14 @@ import {
 } from '@/ui/primitives/table';
 import { StatusBadge } from '@/ui/status-badge';
 import { StayDates } from '@/ui/stay-dates';
-import type { Booking } from '../model/booking';
+import { type Booking, houseLabel } from '../model/booking';
 
 export function BookingsTable({
   bookings,
   houses,
 }: {
   bookings: readonly Booking[];
-  houses: ReadonlyMap<string, HouseSummary | null>;
+  houses: ReadonlyMap<string, HouseLookup>;
 }) {
   return (
     <Table>
@@ -42,7 +42,7 @@ export function BookingsTable({
                   className="font-medium underline-offset-4 hover:underline"
                   href={`/bookings/${booking.id}` as Route}
                 >
-                  {house ? house.title : 'House no longer listed'}
+                  {houseLabel(house)}
                 </Link>
               </TableCell>
               <TableCell>

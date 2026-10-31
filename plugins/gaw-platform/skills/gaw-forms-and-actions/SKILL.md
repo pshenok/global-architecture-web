@@ -18,7 +18,7 @@ export const createHouse = defineAction({
   input: HouseForm, // zod, field by field as posted
   fields: HOUSE_API_FIELDS, // API errors[].field (dotted) -> form field
   messages: HOUSE_MESSAGES, // code -> message, or { field, message }
-  successCodes: [], // codes that mean "already done" (a double submit)
+  successCodes: [], // codes that mean "already done" here: the page refreshes
   run: async ({ caller, me, requestId }, input) => {
     const result = await houses.createHouse(caller, toHouseBody(input));
     return result.ok ? { kind: 'redirect', to: `/houses/${result.value.id}` } : result;
@@ -40,6 +40,10 @@ outside every try block:
 
 `shell: 'stale'` when the action changed who the user is (registration, a rename): the
 root layout re-renders, so the header shows it.
+
+A delete whose resource is already gone (another tab deleted it) goes where a successful
+delete goes, in `run` (`result.ok || gone ? { kind: 'redirect', ... }`): a refresh would
+land on a page that no longer exists.
 
 Rules (check-access S4): only `export const x = defineAction({ access: '<literal>', ... })`
 in `actions.ts`; no inline `'use server'`; `actions.ts` imports no `next/navigation`,
