@@ -88,11 +88,12 @@ function isActionExport(statement: Node, source: SourceFile): boolean {
     statement as unknown as { declarationList: Node & { declarations: readonly Node[] } }
   ).declarationList;
   if (!/^const\b/.test(list.getText(source)) || list.declarations.length !== 1) return false;
-  const declaration = list.declarations[0] as unknown as { name: Node; initializer?: Node };
+  const declaration = list.declarations[0] as unknown as {
+    name: Node;
+    initializer?: Node & { expression?: Node; arguments?: readonly Node[] };
+  };
   if (!/^[a-z][A-Za-z0-9]*$/.test(declaration.name.getText(source))) return false;
-  const call = declaration.initializer as
-    | (Node & { expression?: Node; arguments?: readonly Node[] })
-    | undefined;
+  const call = declaration.initializer;
   if (
     call?.kind !== SyntaxKind.CallExpression ||
     call.expression?.getText(source) !== 'defineAction' ||

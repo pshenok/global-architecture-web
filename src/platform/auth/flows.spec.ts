@@ -69,6 +69,23 @@ describe('sign-in flows', () => {
     expect(txn).toContain(TXN_COOKIE);
   });
 
+  it('starts a sign-in only for a navigation, never for a fetch that followed a redirect', async () => {
+    for (const mode of ['cors', 'no-cors', 'same-origin']) {
+      const response = await handleLogin(
+        new Request(`${APP}/auth/login?returnTo=%2Fhouses%2Fnew`, {
+          headers: { 'sec-fetch-mode': mode },
+        }),
+      );
+      expect(response.status).toBe(204);
+      expect(setCookie(response, TXN_COOKIE)).toBeUndefined();
+    }
+    const navigation = await handleLogin(
+      new Request(`${APP}/auth/login`, { headers: { 'sec-fetch-mode': 'navigate' } }),
+    );
+    expect(navigation.status).toBe(303);
+    expect(setCookie(navigation, TXN_COOKIE)).toBeTruthy();
+  });
+
   it('signs a registered user in and returns to where they started', async () => {
     mswServer.use(http.get(`${API}/v1/users/me`, () => HttpResponse.json(ME)));
     const { txn, authorize } = await startLogin('/bookings?as=host');

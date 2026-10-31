@@ -65,7 +65,12 @@ export async function handleCallback(request: Request): Promise<Response> {
       },
     );
   } catch (error) {
-    log.warn('login callback refused', { reason: error instanceof Error ? error.name : 'unknown' });
+    // The oauth4webapi code names the failed check (the class name is minified in builds).
+    const code = (error as { code?: unknown }).code;
+    log.warn('login callback refused', {
+      reason: error instanceof Error ? error.message.slice(0, 120) : 'unknown',
+      ...(typeof code === 'string' ? { code } : {}),
+    });
     if (error instanceof client.AuthorizationResponseError)
       return fail(IDP_ERRORS[error.error] ?? 'IDP_ERROR');
     if (error instanceof client.ResponseBodyError && error.status < 500)
