@@ -4,8 +4,10 @@
  * with the TypeScript 7 parser; every import, export ... from and import() counts. Type-
  * only imports are erased at build time and always allowed.
  *
- * R1  A relative import never leaves its slice (one feature, kernel, ui, platform, app).
- * R2  Slices: kernel imports nothing outside itself; ui imports kernel, ui and its UI
+ * R1  A relative import never leaves its slice (one feature, kernel, ui, platform, app);
+ *     an alias import names its target directly (no empty, . or .. segments, no /index).
+ * R2  src holds only kernel, ui, platform, features, app, proxy.ts and instrumentation.ts.
+ *     Slices: kernel imports nothing outside itself; ui imports kernel, ui and its UI
  *     packages; platform never imports features, app or ui; features import kernel, ui and
  *     platform entries; app composes features through their public entries. Outside
  *     platform, only `@/platform/<entry>` roots are imported, each by the files it serves.
@@ -18,7 +20,9 @@
  *     next/cache, platform, data, views, server.ts, actions.ts (actions arrive as props).
  * R7  Server code starts with `import 'server-only'`: platform (except its client-free
  *     testing helpers), and every feature's data/, views/ and server.ts.
- * R8  A feature's gateways call the API only on its own apiPaths, with literal paths.
+ * R8  A feature's gateways call the API only on its own apiPaths, with literal paths, as
+ *     api().<METHOD>('<path>', ...) with `api` imported by name from @/platform/api; no
+ *     feature re-exports the client or imports it with import().
  * R9  Single owners: openapi-fetch (platform/api/client.ts), openid-client
  *     (platform/auth/oidc.ts), jose (platform/session/codec.ts), the global fetch
  *     (platform/net/outbound.ts), next/headers (platform/{session,auth,http,actions}); no undici.
@@ -33,7 +37,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
 import { ROOT, readRegistry } from './lib.ts';
 import {
-  directiveOf,
+  directivesOf,
   files,
   type ImportRef,
   importsOf,
@@ -198,7 +202,7 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
   const at = (node: Node) => `${file}:${lineOf(source, node)}`;
   const here = locate(as);
   const spec = isSpec(as);
-  const client = directiveOf(source) === 'use client';
+  const client = directivesOf(source.statements).some((d) => d.text === 'use client');
   const imports = importsOf(source);
 
   // R7: server-only first.
@@ -209,6 +213,11 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
         (here.layer === 'data' || here.layer === 'views' || here.layer === 'server')));
   if (mustBeServerOnly && !startsServerOnly(source)) {
     problems.push(`${file}:1: server code starts with import 'server-only' (R7)`);
+  }
+  if (as.startsWith('src/') && here.slice === 'other') {
+    problems.push(
+      `${file}:1: src holds only kernel, ui, platform, features, app, proxy.ts and instrumentation.ts (R2)`,
+    );
   }
 
   for (const ref of imports) {
@@ -255,19 +264,19 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
         );
       }
     }
+    for (const ref of imports) {
+      const target = resolveSpecifier(ref.specifier, as);
+      const where = target === undefined ? undefined : locate(target);
+      if (where?.slice === 'platform' && where.entry === 'api' && ref.kind !== 'import')
+        problems.push(
+          `${at(ref.node)}: features import the API client statically and never re-export it (R8)`,
+        );
+    }
   }
-  const usesApi = imports.some(
-    (ref) => ref.specifier === '@/platform/api' && ref.names.includes('api'),
-  );
 
   // R8 (API ownership) and R9 (the global fetch).
   const visit = (node: Node): void => {
-    if (
-      featureCode &&
-      usesApi &&
-      node.kind === SyntaxKind.Identifier &&
-      node.getText(source) === 'api'
-    ) {
+    if (featureCode && node.kind === SyntaxKind.Identifier && node.getText(source) === 'api') {
       const parent = (
         node as unknown as {
           parent: Node & { name?: Node; expression?: Node; arguments?: readonly Node[] };
@@ -281,39 +290,39 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
       if (!isPropertyName) {
         const member = (parent as unknown as { parent: Node & { name?: Node; expression?: Node } })
           .parent;
-        const outer = (member as unknown as { parent: Node & { expression?: Node } }).parent;
+        const outer = (
+          member as unknown as { parent: Node & { expression?: Node; arguments?: readonly Node[] } }
+        ).parent;
+        const method = member.name?.getText(source) ?? '';
+        // The text check refuses what the tree allows: optional chaining, comments.
         const direct =
           parent.kind === SyntaxKind.CallExpression &&
           parent.expression === node &&
           (parent.arguments?.length ?? 0) === 0 &&
           member.kind === SyntaxKind.PropertyAccessExpression &&
           member.expression === parent &&
-          API_METHODS.has(member.name?.getText(source) ?? '') &&
+          API_METHODS.has(method) &&
           outer.kind === SyntaxKind.CallExpression &&
-          outer.expression === member;
-        if (!direct)
+          outer.expression === member &&
+          outer.getText(source).startsWith(`api().${method}(`);
+        if (!direct) {
           problems.push(
             `${at(node)}: call the API only as api().<GET|POST|PUT|PATCH|DELETE>('<literal path>', ...) (R8)`,
           );
+        } else {
+          const path = textOf(outer.arguments?.[0]);
+          const owned = byName.get(here.feature)?.apiPaths ?? [];
+          if (path === undefined) problems.push(`${at(node)}: API paths are string literals (R8)`);
+          else if (!owned.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+            problems.push(
+              `${at(node)}: ${path} belongs to another feature; ${here.feature} owns ${owned.join(', ') || 'no API paths'} (R8)`,
+            );
+          }
+        }
       }
     }
     if (node.kind === SyntaxKind.CallExpression) {
-      const call = node as unknown as { expression: Node; arguments: readonly Node[] };
-      const callee = call.expression.getText(source);
-      if (
-        /^api\(\)\.(GET|POST|PUT|PATCH|DELETE)$/.test(callee) &&
-        here.slice === 'feature' &&
-        !spec
-      ) {
-        const path = textOf(call.arguments[0]);
-        const owned = byName.get(here.feature)?.apiPaths ?? [];
-        if (path === undefined) problems.push(`${at(node)}: API paths are string literals (R8)`);
-        else if (!owned.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-          problems.push(
-            `${at(node)}: ${path} belongs to another feature; ${here.feature} owns ${owned.join(', ') || 'no API paths'} (R8)`,
-          );
-        }
-      }
+      const callee = (node as unknown as { expression: Node }).expression.getText(source);
       if (
         (callee === 'fetch' || callee === 'globalThis.fetch') &&
         as !== 'src/platform/net/outbound.ts' &&
@@ -337,13 +346,16 @@ function checkImport(
   const problems: string[] = [];
   const { specifier } = ref;
   if (specifier === '<computed>') return ['import() takes a literal specifier'];
-  if (
-    specifier.startsWith('@/') &&
-    specifier.split('/').some((segment) => segment === '.' || segment === '..')
-  ) {
-    return [
-      `alias imports name their target directly, without . or .. segments: ${specifier} (R1)`,
-    ];
+  if (specifier.startsWith('@/')) {
+    const segments = specifier.slice(2).split('/');
+    if (
+      segments.some((segment) => segment === '' || segment === '.' || segment === '..') ||
+      segments.at(-1) === 'index'
+    ) {
+      return [
+        `alias imports name their target directly (no empty, . or .. segments, no /index): ${specifier} (R1)`,
+      ];
+    }
   }
   const targetPath = resolveSpecifier(specifier, as);
   const target = targetPath === undefined ? ({ slice: 'external' } as Where) : locate(targetPath);

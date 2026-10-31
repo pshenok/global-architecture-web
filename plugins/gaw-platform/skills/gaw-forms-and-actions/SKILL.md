@@ -20,7 +20,7 @@ export const createHouse = defineAction({
   messages: HOUSE_MESSAGES, // code -> message, or { field, message }
   successCodes: [], // codes that mean "already done" here: the page refreshes
   run: async ({ caller, me, requestId }, input) => {
-    const result = await houses.createHouse(caller, toHouseBody(input));
+    const result = await houses.createHouse(caller, toCreateHouseBody(input));
     return result.ok ? { kind: 'redirect', to: `/houses/${result.value.id}` } : result;
   },
 });
@@ -46,7 +46,9 @@ delete goes, in `run` (`result.ok || gone ? { kind: 'redirect', ... }`): a refre
 land on a page that no longer exists.
 
 Rules (check-access S4): only `export const x = defineAction({ access: '<literal>', ... })`
-in `actions.ts`; no inline `'use server'`; `actions.ts` imports no `next/navigation`,
+in `actions.ts`, with `defineAction` imported by name from `@/platform/actions` (never
+declared, wrapped or renamed); no inline `'use server'`, wherever it sits in a directive
+prologue; `actions.ts` imports no `next/navigation`,
 `next/cache`, `next/headers` or `@/platform/api`. Handlers return outcomes; they never
 call `redirect()`. A thrown error becomes a generic message with the request id.
 

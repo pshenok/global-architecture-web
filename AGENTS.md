@@ -50,7 +50,7 @@ pnpm ui:add <component>         # a shadcn primitive into src/ui/primitives (re-
 
 A full client of the monolith: sign-in (code flow + PKCE at the monolith's dev IdP),
 registration, account, the house catalogue, house management, bookings as guest and host,
-admin users. 171 unit, template and component tests; 33 end-to-end tests against the real
+admin users. 178 unit, template and component tests; 33 end-to-end tests against the real
 stack (features, security, accessibility in both color schemes).
 
 <!-- BEGIN:nextjs-agent-rules -->

@@ -47,14 +47,14 @@ There is no ports-and-adapters layer inside a feature. The monolith owns every b
 
 **Enforcement.**
 - `tools/check-boundaries.ts` is ported from the monolith's walker and runs on `typescript/unstable/ast` + `unstable/sync`, covering `.ts` and `.tsx`. It enforces rules R1 to R12:
-  - relative imports stay inside their slice;
-  - the slice matrix and platform entries;
+  - relative imports stay inside their slice, and alias imports name their target directly (no empty, `.` or `..` segments, no `/index`);
+  - `src` holds only the known slices, and the slice matrix and platform entries hold;
   - the declared, acyclic feature graph, reached through public entries only;
   - the layer matrix;
   - synchronous `ui/`;
   - the client boundary;
   - the required `server-only` marker;
-  - API ownership;
+  - API ownership, read on the syntax tree: `api().<METHOD>('<literal path>', ...)` only, the client imported statically by name and never re-exported;
   - single owners of `openapi-fetch`, `openid-client`, `jose`, global `fetch` and `next/headers`;
   - `authorizationHeader` used only by the API layer;
   - testing modules never imported by production code;

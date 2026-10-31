@@ -40,6 +40,9 @@ test.describe('access', () => {
       'https://evil.test/x',
       '/\\evil.test',
       '/\t/evil.test/x',
+      '/.//evil.test/x',
+      '/%2e//evil.test/x',
+      '/houses/..//evil.test/x',
     ]) {
       await page.context().clearCookies();
       await page.goto(`/auth/login?returnTo=${encodeURIComponent(target)}`);
@@ -76,6 +79,9 @@ test.describe('access', () => {
       '//evil.test/x',
       '/\\evil.test',
       'https://evil.test/x',
+      '/.//evil.test/x',
+      '/%2e//evil.test/x',
+      '/houses/..//evil.test/x',
     ]) {
       await guest.goto(`/register?returnTo=${encodeURIComponent(target)}`);
       await expect(guest).toHaveURL(/^http:\/\/localhost:9301\/houses/);

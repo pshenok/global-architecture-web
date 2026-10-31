@@ -5,19 +5,22 @@
  * S1  security/public-routes.json matches src/app: every listed route exists, patterns
  *     compile, and route handlers list exactly the methods they export.
  * S2  Route handlers exist only at auth/{login,callback} (GET), auth/logout (POST) and
- *     healthz (GET), each a thin wrapper of @/platform/auth or @/platform/health.
+ *     healthz (GET), each a thin wrapper of @/platform/auth or @/platform/health that
+ *     exports nothing but its methods.
  * S3  src/proxy.ts exports `proxy` calling runProxy, with the pinned matcher literal.
  * S4  'use server' only opens a feature's actions.ts; every export there is
- *     `export const x = defineAction({ access: '<literal>', ... })`; no inline 'use
- *     server'; actions.ts imports neither next/navigation, next/cache, next/headers nor
- *     @/platform/api (outcomes and gateways do that).
+ *     `export const x = defineAction({ access: '<literal>', ... })` with defineAction
+ *     imported by name from @/platform/actions; no inline 'use server' (anywhere in a
+ *     directive prologue); actions.ts imports neither next/navigation, next/cache,
+ *     next/headers nor @/platform/api (outcomes and gateways do that).
  * S5  No cross-request caching: no 'use cache', unstable_cache, cacheTag, cacheLife,
  *     revalidateTag, updateTag, fetch cache options or segment config exports;
  *     revalidatePath only in platform/actions/define-action.ts.
  * S6  No loading.tsx in or above a dynamic segment's page (a 404 must be a real 404).
  * S7  No NEXT_PUBLIC_ anything: nothing configuration-like reaches the browser bundle.
  * S8  Token fields (at, rt, idt, accessToken, refreshToken, idToken) are read only inside
- *     platform/{session,auth,api,proxy}.
+ *     platform/{session,auth,api,proxy}: by property access, element access or
+ *     destructuring.
  * S9  No forbidden(), unauthorized() or taint APIs; in features, notFound and redirect are
  *     imported only by views/ and server.ts.
  * S10 No @ts-ignore, @ts-expect-error or @ts-nocheck outside tests, and no suppression of
@@ -29,7 +32,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from './lib.ts';
 import {
-  directiveOf,
+  directivesOf,
+  exportedNames,
   files,
   importsOf,
   lineOf,
@@ -138,15 +142,17 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
   });
 
   // S4: 'use server' placement and shape.
-  const directive = directiveOf(source);
-  const directiveLine = source.statements[0]
-    ? `${file}:${lineOf(source, source.statements[0])}`
-    : `${file}:1`;
-  if (directive === 'use server' && !isActionsFile(as))
-    problems.push(`${directiveLine}: 'use server' only opens a feature's actions.ts (S4)`);
+  const directives = directivesOf(source.statements);
+  const useServer = directives.find((d) => d.text === 'use server');
+  if (useServer && !isActionsFile(as))
+    problems.push(`${at(useServer.node)}: 'use server' only opens a feature's actions.ts (S4)`);
+  for (const cache of directives.filter((d) => d.text.startsWith('use cache')))
+    problems.push(`${at(cache.node)}: no 'use cache' (S5)`);
   if (isActionsFile(as)) {
-    if (directive !== 'use server')
-      problems.push(`${directiveLine}: actions.ts starts with 'use server' (S4)`);
+    if (directives[0]?.text !== 'use server')
+      problems.push(
+        `${source.statements[0] ? at(source.statements[0]) : `${file}:1`}: actions.ts starts with 'use server' (S4)`,
+      );
     for (const ref of imports) {
       if (
         ['next/navigation', 'next/cache', 'next/headers', '@/platform/api'].includes(ref.specifier)
@@ -164,23 +170,42 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
         );
       }
     }
+    // The name is the platform's defineAction: imported by name, never declared or renamed.
+    const checkName = (node: Node): void => {
+      if (node.kind === SyntaxKind.Identifier && node.getText(source) === 'defineAction') {
+        const parent = (
+          node as unknown as { parent: Node & { expression?: Node; propertyName?: Node } }
+        ).parent;
+        const called = parent.kind === SyntaxKind.CallExpression && parent.expression === node;
+        const declaration = (
+          parent as unknown as {
+            parent?: { parent?: { parent?: Node & { moduleSpecifier?: Node } } };
+          }
+        ).parent?.parent?.parent;
+        const imported =
+          parent.kind === SyntaxKind.ImportSpecifier &&
+          parent.propertyName === undefined &&
+          declaration?.kind === SyntaxKind.ImportDeclaration &&
+          textOf(declaration.moduleSpecifier) === '@/platform/actions';
+        if (!called && !imported)
+          problems.push(
+            `${at(node)}: defineAction is imported by name from @/platform/actions, never declared or renamed (S4)`,
+          );
+      }
+      node.forEachChild(checkName);
+    };
+    source.forEachChild(checkName);
   }
 
   const visit = (node: Node): void => {
     // S4: no inline 'use server' (closures would round-trip through the client).
     if (node.kind === SyntaxKind.Block) {
-      const first = (node as unknown as { statements: readonly Node[] }).statements[0];
-      if (
-        first?.kind === SyntaxKind.ExpressionStatement &&
-        textOf((first as unknown as { expression: Node }).expression) === 'use server'
-      ) {
-        problems.push(`${at(first)}: no inline 'use server'; actions live in actions.ts (S4)`);
-      }
-      if (
-        first?.kind === SyntaxKind.ExpressionStatement &&
-        /^use cache/.test(textOf((first as unknown as { expression: Node }).expression) ?? '')
-      ) {
-        problems.push(`${at(first)}: no 'use cache' (S5)`);
+      for (const d of directivesOf(
+        (node as unknown as { statements: readonly Node[] }).statements,
+      )) {
+        if (d.text === 'use server')
+          problems.push(`${at(d.node)}: no inline 'use server'; actions live in actions.ts (S4)`);
+        if (d.text.startsWith('use cache')) problems.push(`${at(d.node)}: no 'use cache' (S5)`);
       }
     }
     // S7: nothing NEXT_PUBLIC_, as a name or a string.
@@ -219,10 +244,32 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
           `${at(node)}: tokens are read only inside platform/{session,auth,api,proxy} (S8)`,
         );
     }
+    if (!spec && !TOKEN_OWNERS.test(as)) {
+      let key: string | undefined;
+      if (node.kind === SyntaxKind.ElementAccessExpression)
+        key = textOf((node as unknown as { argumentExpression: Node }).argumentExpression);
+      if (node.kind === SyntaxKind.BindingElement) {
+        const element = node as unknown as { parent: Node; propertyName?: Node; name: Node };
+        if (element.parent.kind === SyntaxKind.ObjectBindingPattern)
+          key = (element.propertyName ?? element.name).getText(source);
+      }
+      if (key !== undefined && TOKEN_FIELDS.has(key))
+        problems.push(
+          `${at(node)}: tokens are read only inside platform/{session,auth,api,proxy} (S8)`,
+        );
+    }
     node.forEachChild(visit);
   };
   source.forEachChild(visit);
-  if (directive?.startsWith('use cache')) problems.push(`${directiveLine}: no 'use cache' (S5)`);
+
+  // S2: a route handler exports its methods and nothing else.
+  const handler = HANDLERS[as];
+  if (handler) {
+    for (const { name, node } of exportedNames(source)) {
+      if (!handler.methods.includes(name))
+        problems.push(`${at(node)}: ${as} exports only ${handler.methods.join(', ')} (S2)`);
+    }
+  }
 
   // S5: segment config exports.
   for (const statement of source.statements) {
@@ -365,14 +412,9 @@ function checkRoutes(read: (path: string) => SourceFile | undefined): string[] {
 
 function exportedMethods(source: SourceFile | undefined): string[] {
   if (!source) return [];
-  const methods: string[] = [];
-  for (const statement of source.statements) {
-    const name = /^export\s+(?:async\s+)?(?:function|const)\s+(\w+)/.exec(
-      statement.getText(source),
-    )?.[1];
-    if (name && HTTP_METHODS.has(name)) methods.push(name);
-  }
-  return methods;
+  return exportedNames(source)
+    .map(({ name }) => name)
+    .filter((name) => HTTP_METHODS.has(name));
 }
 
 /** S3: the proxy file and its matcher. */

@@ -1,7 +1,9 @@
 import { HttpResponse, http } from 'msw/http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { problemResponse } from '@/platform/api/testing';
+import { seal, unseal } from '@/platform/session/codec';
 import { SESSION_COOKIE, TXN_COOKIE } from '@/platform/session/cookies';
+import { sessionKeys } from '@/platform/session/keys';
 import { openSession } from '@/platform/session/read';
 import { RefreshGrantError } from '@/platform/session/refresh';
 import { idpState, resetOidc, useIdp } from '../../../tests/support/idp';
@@ -103,6 +105,31 @@ describe('sign-in flows', () => {
       rt: 'refresh-token-1',
       sid: 'sid-1',
     });
+  });
+
+  it('never leaves the site, whatever returnTo resolves to', async () => {
+    mswServer.use(http.get(`${API}/v1/users/me`, () => HttpResponse.json(ME)));
+    const query = (authorize: URL) =>
+      `code=c1&state=${authorize.searchParams.get('state')}&iss=${encodeURIComponent(IDP)}`;
+    // Dot segments collapse into "//evil.test" once resolved: refused at login.
+    for (const target of ['/.//evil.test/x', '/%2e//evil.test/x', '/a/..//evil.test/x']) {
+      const { txn, authorize } = await startLogin(target);
+      expect((await callback(query(authorize), txn)).headers.get('location')).toBe(`${APP}/houses`);
+    }
+    // A transaction that somehow holds an off-site path: the callback still stays here.
+    const { txn, authorize } = await startLogin();
+    const opened = await unseal('txn', txn.slice(TXN_COOKIE.length + 1), sessionKeys(), NOW_S);
+    expect(opened.ok).toBe(true);
+    const payload = opened.ok ? opened.payload : {};
+    const forged = await seal(
+      'txn',
+      { ...payload, returnTo: '//evil.test/x' },
+      NOW_S + 600,
+      sessionKeys(),
+    );
+    expect(
+      (await callback(query(authorize), `${TXN_COOKIE}=${forged}`)).headers.get('location'),
+    ).toBe(`${APP}/houses`);
   });
 
   it('sends a login without a user to registration, with the session', async () => {

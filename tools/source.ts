@@ -62,6 +62,8 @@ export const textOf = (node: Node | undefined): string | undefined =>
 
 export interface ImportRef {
   readonly specifier: string;
+  /** `import`, `export ... from`, or `import()`. */
+  readonly kind: 'import' | 'export' | 'dynamic';
   /** Erased at compile time: `import type`, or only `type` specifiers. */
   readonly typeOnly: boolean;
   /** Imported names (`default`, `*`, or the exported name). */
@@ -97,7 +99,13 @@ export function importsOf(source: SourceFile): ImportRef[] {
             elements.length > 0 &&
             elements.every((e) => e.isTypeOnly);
         }
-        found.push({ specifier, typeOnly, names, node: declaration.moduleSpecifier });
+        found.push({
+          specifier,
+          kind: 'import',
+          typeOnly,
+          names,
+          node: declaration.moduleSpecifier,
+        });
       }
     } else if (node.kind === SyntaxKind.ExportDeclaration) {
       const declaration = node as ExportDeclaration;
@@ -105,6 +113,7 @@ export function importsOf(source: SourceFile): ImportRef[] {
       if (specifier !== undefined) {
         found.push({
           specifier,
+          kind: 'export',
           typeOnly: declaration.isTypeOnly,
           names: ['*'],
           node: declaration.moduleSpecifier as Node,
@@ -116,6 +125,7 @@ export function importsOf(source: SourceFile): ImportRef[] {
         const specifier = textOf(call.arguments[0]);
         found.push({
           specifier: specifier ?? '<computed>',
+          kind: 'dynamic',
           typeOnly: false,
           names: ['*'],
           node: call,
@@ -128,12 +138,57 @@ export function importsOf(source: SourceFile): ImportRef[] {
   return found;
 }
 
-/** The directive a file starts with ('use client', 'use server'), if any. */
-export function directiveOf(source: SourceFile): string | undefined {
-  const first = source.statements[0];
-  if (first?.kind !== SyntaxKind.ExpressionStatement) return undefined;
-  const expression = (first as unknown as { expression: Node }).expression;
-  return textOf(expression);
+/**
+ * The directive prologue of a file or function body: every leading string statement
+ * ('use client', 'use server', 'use no memo', ...). Next reads the whole prologue, so a
+ * directive counts wherever it sits in it, not only first.
+ */
+export function directivesOf(statements: readonly Node[]): { text: string; node: Node }[] {
+  const found: { text: string; node: Node }[] = [];
+  for (const statement of statements) {
+    if (statement.kind !== SyntaxKind.ExpressionStatement) break;
+    const text = textOf((statement as unknown as { expression: Node }).expression);
+    if (text === undefined) break;
+    found.push({ text, node: statement });
+  }
+  return found;
+}
+
+/** A named export (`export const`, `export function`), not `export default`. */
+const isExported = (node: Node) => {
+  const modifiers = (node as unknown as { modifiers?: readonly Node[] }).modifiers ?? [];
+  return (
+    modifiers.some((m) => m.kind === SyntaxKind.ExportKeyword) &&
+    !modifiers.some((m) => m.kind === SyntaxKind.DefaultKeyword)
+  );
+};
+
+/**
+ * Every name a module exports, with its statement: each declarator of an exported
+ * variable statement, exported functions and classes, and the names of export lists
+ * (`*` for `export * from`). `export default` is left out.
+ */
+export function exportedNames(source: SourceFile): { name: string; node: Node }[] {
+  const found: { name: string; node: Node }[] = [];
+  for (const statement of source.statements) {
+    const node = statement as unknown as {
+      declarationList?: { declarations: readonly { name: Node }[] };
+      name?: Node;
+      exportClause?: Node & { elements?: readonly { name: Node }[] };
+    };
+    if (statement.kind === SyntaxKind.ExportDeclaration) {
+      const elements = node.exportClause?.elements;
+      if (elements)
+        for (const e of elements) found.push({ name: e.name.getText(source), node: statement });
+      else found.push({ name: '*', node: statement });
+    } else if (isExported(statement)) {
+      if (node.declarationList)
+        for (const d of node.declarationList.declarations)
+          found.push({ name: d.name.getText(source), node: statement });
+      else if (node.name) found.push({ name: node.name.getText(source), node: statement });
+    }
+  }
+  return found;
 }
 
 /** True when the first import of the file is `import 'server-only'`. */

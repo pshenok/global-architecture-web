@@ -11,6 +11,7 @@ import { nowSeconds } from '@/platform/session/policy';
 import { LoginTransaction, type Session } from '@/platform/session/schema';
 import { writeSession } from '@/platform/session/write';
 import { client, getOidcConfig } from './oidc';
+import { DEFAULT_RETURN_TO } from './return-to';
 
 const noStore = { 'cache-control': 'no-store' };
 
@@ -31,10 +32,11 @@ export async function handleCallback(request: Request): Promise<Response> {
   const env = getEnv();
   const now = nowSeconds();
   const to = (path: string) => {
-    const response = NextResponse.redirect(new URL(path, env.APP_ORIGIN), {
-      status: 303,
-      headers: noStore,
-    });
+    // The last guard against an open redirect: whatever a path resolves to, only this site.
+    const target = new URL(path, env.APP_ORIGIN);
+    const safe =
+      target.origin === env.APP_ORIGIN ? target : new URL(DEFAULT_RETURN_TO, env.APP_ORIGIN);
+    const response = NextResponse.redirect(safe, { status: 303, headers: noStore });
     expireCookie(response.cookies, TXN_COOKIE);
     return response;
   };
