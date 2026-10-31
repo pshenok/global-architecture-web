@@ -1,0 +1,17 @@
+{
+  "name": "global-architecture-web",
+  "owner": {
+    "name": "pshenok"
+  },
+  "metadata": {
+    "description": "Skills and tooling for building features on global-architecture-web.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "gaw-platform",
+      "source": "./plugins/gaw-platform",
+      "description": "Platform skills: architecture, new features, feature APIs, data access, pages and routing, forms and actions, auth and security, UI, testing, local stack, review, maintenance."
+    }
+  ]
+}

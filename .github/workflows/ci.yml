@@ -1,0 +1,112 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: lint, typecheck, test, build, template, e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      TURBO_TELEMETRY_DISABLED: "1"
+      GAM_MONOLITH_DIR: ${{ github.workspace }}/monolith
+      # The monolith's CI database settings.
+      PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      TEST_DATABASE_URL: postgresql://gam:gam@localhost:5432/gam_test
+    steps:
+      # Actions are pinned by commit (ADR-0007); the comment names the release.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: web
+          persist-credentials: false
+
+      - name: The monolith commit this app's API snapshot came from
+        id: source
+        run: echo "commit=$(jq -r .commit web/contracts/monolith/source.json)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pshenok/global-architecture-monolith
+          ref: ${{ steps.source.outputs.commit }}
+          path: monolith
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+
+      - name: Install pnpm (the repos pin Node and pnpm via devEngines)
+        run: npm install --global pnpm@12.16.1
+
+      - name: Install
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --prod --audit-level high
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Lint (Biome, check-access, check-boundaries, check-text, oxlint, knip)
+        working-directory: web
+        run: pnpm lint
+      - working-directory: web
+        run: pnpm typecheck
+      - name: Test (unit, template, components in Chromium) and the security core's coverage
+        working-directory: web
+        run: |
+          pnpm test
+          pnpm test:coverage
+      - working-directory: web
+        run: pnpm api:check
+
+      - name: Build (check-build scans the static assets for these values)
+        working-directory: web
+        env:
+          SESSION_KEYS: '[{"kid":"ci","key":"Y2ktYnVpbGQtbmV2ZXItdXNlZC1hcy1hLWtleS0wMDA"}]'
+          OIDC_CLIENT_SECRET: ci-build-secret-never-used
+        run: pnpm build
+      - working-directory: web
+        run: pnpm template:verify
+
+      - name: The monolith's stack (API, dev IdP, Postgres) at the snapshot's commit
+        working-directory: monolith
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm db:setup
+          pnpm stack:up
+
+      - name: End to end
+        working-directory: web
+        run: pnpm test:e2e
+
+      - name: Playwright report on failure (never tests/e2e/.auth)
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Stack logs on failure
+        if: failure()
+        run: tail -n 100 ~/.pm2/logs/*.log || true

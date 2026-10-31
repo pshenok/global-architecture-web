@@ -1,0 +1,9 @@
+# GitHub Actions only: npm upgrades are manual and verified (gaw-platform-maintenance).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

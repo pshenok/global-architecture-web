@@ -1,0 +1,83 @@
+name: drift
+
+# Nightly: does this app still work with the monolith's main branch? A failure here is
+# news, not a broken build: CI pins the monolith to contracts/monolith/source.json.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      GAM_MONOLITH_DIR: ${{ github.workspace }}/monolith
+      PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      TEST_DATABASE_URL: postgresql://gam:gam@localhost:5432/gam_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: web
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pshenok/global-architecture-monolith
+          ref: main
+          path: monolith
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+      - run: npm install --global pnpm@12.16.1
+
+      - name: Shared tool versions match the monolith's catalog
+        run: |
+          status=0
+          for tool in typescript @biomejs/biome oxlint oxlint-tsgolint vitest vite zod jose @types/node; do
+            web=$(jq -r --arg t "$tool" '.dependencies[$t] // .devDependencies[$t] // empty' web/package.json)
+            mono=$(yq -r ".catalog[\"$tool\"] // \"\"" monolith/pnpm-workspace.yaml)
+            if [ -n "$web" ] && [ -n "$mono" ] && [ "$web" != "$mono" ]; then
+              echo "::warning::$tool is $web here, $mono in the monolith"; status=1
+            fi
+          done
+          exit $status
+
+      - name: Install and audit
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm audit --prod --audit-level high
+          pnpm exec playwright install --with-deps chromium
+
+      - name: The monolith's main
+        working-directory: monolith
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm db:setup
+          pnpm stack:up
+
+      - name: Contract against main (a different document fails here; compatible or breaking shows in typecheck)
+        working-directory: web
+        run: |
+          pnpm api:sync
+          git --no-pager diff --stat contracts/ src/platform/api/generated/
+          pnpm typecheck
+
+      - name: End to end against main
+        working-directory: web
+        run: pnpm build && pnpm test:e2e

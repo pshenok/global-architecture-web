@@ -1,0 +1,9 @@
+{
+  "name": "gaw-platform",
+  "version": "0.1.0",
+  "description": "Engineering skills for global-architecture-web, the Next.js BFF of global-architecture-monolith: architecture rules, new features from the template, feature APIs, data access and the API contract, pages and routing, forms and Server Actions, authentication and security, the UI system, testing, local stack, code review and platform maintenance.",
+  "author": { "name": "pshenok" },
+  "homepage": "https://github.com/pshenok/global-architecture-web",
+  "repository": "https://github.com/pshenok/global-architecture-web",
+  "keywords": ["nextjs", "bff", "oidc", "react", "shadcn", "playwright"]
+}

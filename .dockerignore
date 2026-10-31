@@ -1,0 +1,10 @@
+**/node_modules
+.next
+coverage
+test-results
+playwright-report
+tests/e2e/.auth
+.env
+.env.*
+!.env.example
+.git
