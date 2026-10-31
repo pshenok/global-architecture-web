@@ -3,6 +3,7 @@ import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
 
 const src = fileURLToPath(new URL('./src', import.meta.url));
+const template = fileURLToPath(new URL('./templates/feature', import.meta.url));
 const browser = (colorScheme: 'light' | 'dark') => ({
   browser: 'chromium' as const,
   name: `chromium-${colorScheme}`,
@@ -48,7 +49,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.spec.ts', 'templates/feature/**/*.spec.ts', 'tools/**/*.spec.ts'],
+          include: ['src/**/*.spec.ts', 'tools/**/*.spec.ts'],
           // Every module is server code here; the real package stays active in the browser project.
           alias: {
             'server-only': fileURLToPath(new URL('./tests/support/empty.ts', import.meta.url)),
@@ -59,13 +60,36 @@ export default defineConfig({
         },
       },
       {
+        // templates/feature, compiled and tested in place against its own contract.
+        extends: true,
+        resolve: {
+          alias: [
+            { find: /^@\/features\/sample-items(\/.*)?$/, replacement: `${template}/feature$1` },
+            {
+              find: '@/platform/api/generated/operations',
+              replacement: `${template}/contract/operations.ts`,
+            },
+          ],
+        },
+        test: {
+          name: 'template',
+          environment: 'node',
+          include: ['templates/feature/feature/**/*.spec.ts'],
+          alias: {
+            'server-only': fileURLToPath(new URL('./tests/support/empty.ts', import.meta.url)),
+          },
+          setupFiles: ['tests/support/unit-setup.ts'],
+          restoreMocks: true,
+        },
+      },
+      {
         extends: true,
         test: {
           name: 'browser',
           // Synchronous ui/ components in real Chromium with the real CSS (axe checks contrast),
           // in both color schemes. server-only stays real: a component that pulls in server
           // code fails here.
-          include: ['src/**/*.spec.tsx', 'templates/feature/**/*.spec.tsx'],
+          include: ['src/**/*.spec.tsx', 'templates/feature/feature/**/*.spec.tsx'],
           setupFiles: ['tests/support/browser-setup.ts'],
           browser: {
             enabled: true,

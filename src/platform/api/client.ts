@@ -1,9 +1,10 @@
 import 'server-only';
 import createClient, { type Client, type Middleware } from 'openapi-fetch';
+// Through the alias, so templates/feature can compile against its own contract.
+import { OPERATIONS } from '@/platform/api/generated/operations';
+import type { paths } from '@/platform/api/generated/schema';
 import { getEnv } from '@/platform/config/env';
 import { apiFetch } from '@/platform/net/outbound';
-import { OPERATIONS } from './generated/operations';
-import type { paths } from './generated/schema';
 
 /** A programming error in how the API is called; never shown to a user, always logged. */
 export class ApiMisuseError extends Error {

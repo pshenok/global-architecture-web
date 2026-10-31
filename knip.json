@@ -10,9 +10,11 @@
     ".": {
       "entry": ["tools/*.ts", "tests/support/*.ts", "tests/e2e/**/*.setup.ts"],
       "project": ["src/**/*.{ts,tsx}", "tools/**/*.ts", "tests/**/*.ts"],
-      "ignore": ["tests/probes/**"],
+      "ignore": ["tests/probes/**", "templates/feature/e2e/**", "templates/feature/contract/**"],
       "ignoreDependencies": ["tailwindcss", "tw-animate-css"]
     },
-    "tools/api-codegen": {}
+    "tools/api-codegen": {
+      "ignoreDependencies": ["openapi-typescript"]
+    }
   }
 }

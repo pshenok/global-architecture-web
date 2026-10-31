@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { z } from 'zod';
 import type { FormState } from '@/kernel/form-state';
-import type { ApiProblem, KnownProblemCode } from '@/kernel/problem-codes';
+import type { ApiProblem, ProblemCode } from '@/kernel/problem-codes';
 import type { ApiResult } from '@/platform/api/call';
 import { endSessionUrl } from '@/platform/auth/end-session';
 import { requestId } from '@/platform/http/request-context';
@@ -52,10 +52,11 @@ export interface ActionSpec<S extends z.ZodObject, F extends string> {
   readonly fields?: Readonly<Record<string, F>>;
   /** Business codes -> message; with a field, the message shows under that field. */
   readonly messages?: Readonly<
-    Partial<Record<KnownProblemCode, Message | { field: F; message: Message }>>
+    // Known codes autocomplete; a feature's own module codes (SAMPLE_ITEM_...) are welcome.
+    Partial<Record<ProblemCode, Message | { field: F; message: Message }>>
   >;
   /** Codes that mean the action already happened (a double submit). */
-  readonly successCodes?: readonly KnownProblemCode[];
+  readonly successCodes?: readonly ProblemCode[];
   readonly run: (
     context: ActionContext,
     input: z.output<S>,
@@ -121,7 +122,7 @@ export function defineAction<S extends z.ZodObject, F extends Extract<keyof z.in
   });
 
   const fromProblem = (problem: ApiProblem, values: Partial<Record<F, string>>): Decision<F> => {
-    if (spec.successCodes?.includes(problem.code as KnownProblemCode)) {
+    if (spec.successCodes?.includes(problem.code)) {
       return { kind: 'outcome', outcome: { kind: 'refresh' } };
     }
     if (problem.code === 'USER_NOT_REGISTERED') {
@@ -152,7 +153,7 @@ export function defineAction<S extends z.ZodObject, F extends Extract<keyof z.in
           : GENERIC.VALIDATION_FAILED;
       return fail(summary as string, values, { ...extra, fieldErrors });
     }
-    const configured = spec.messages?.[problem.code as KnownProblemCode];
+    const configured = spec.messages?.[problem.code];
     if (configured) {
       const bound = typeof configured === 'object' ? configured : undefined;
       const message = bound ? bound.message : (configured as Message);

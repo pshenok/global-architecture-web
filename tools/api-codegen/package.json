@@ -1,12 +1,8 @@
 {
   "name": "@gaw/api-codegen",
   "private": true,
-  "description": "Generates src/platform/api/generated/schema.d.ts from the committed monolith OpenAPI snapshot. A separate package so openapi-typescript's TypeScript 6 peer never reaches the app.",
+  "description": "openapi-typescript for tools/api-sync.ts. A separate package so its TypeScript 6 peer never reaches the app.",
   "type": "module",
-  "scripts": {
-    "generate": "openapi-typescript ../../contracts/monolith/openapi.json -o ../../src/platform/api/generated/schema.d.ts",
-    "check": "openapi-typescript ../../contracts/monolith/openapi.json -o ../../src/platform/api/generated/schema.d.ts --check"
-  },
   "devDependencies": {
     "openapi-typescript": "7.13.0",
     "typescript": "npm:@typescript/typescript6@6.0.2"

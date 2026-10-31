@@ -117,6 +117,9 @@ export function locate(path: string): Where {
 
 /** The repository path an import points at, or undefined for a package. */
 function resolveSpecifier(specifier: string, from: string): string | undefined {
+  // The template compiles in place: its alias points at templates/feature/feature.
+  const template = /^@\/features\/sample-items(\/.*)?$/.exec(specifier);
+  if (template) return `${TEMPLATE_FEATURE.dir}${template[1] ?? ''}`;
   if (specifier.startsWith('@/')) return `src/${specifier.slice(2)}`;
   if (specifier.startsWith('.'))
     return normalize(join(dirname(from), specifier))

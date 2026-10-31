@@ -1,0 +1,15 @@
+{
+  "$comment": "Compiles the feature template in place against the app's contract plus its own fixture (contract/, from pnpm api:sync). The app's typed routes are left out: template links are plain strings.",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/features/sample-items": ["./feature/index.ts"],
+      "@/features/sample-items/*": ["./feature/*"],
+      "@/platform/api/generated/schema": ["./contract/schema.d.ts"],
+      "@/platform/api/generated/operations": ["./contract/operations.ts"],
+      "@/*": ["../../src/*"]
+    }
+  },
+  "include": ["feature/**/*.ts", "feature/**/*.tsx", "routes/**/*.tsx", "contract/*.ts"],
+  "exclude": ["e2e"]
+}

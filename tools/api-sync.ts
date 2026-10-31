@@ -11,19 +11,23 @@
  * commit, starts it, and the e2e global setup asserts its live document equals the
  * snapshot. --allow-dirty is for the local loop right after `pnpm new:module` there; it
  * marks source.json dirty, so api:check fails until a clean sync.
+ *
+ * The same run generates templates/feature/contract (the app's document plus the template's
+ * sample-items fixture), so the feature template compiles and tests in place.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { request } from 'node:https';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { monolithDir, ROOT, readMonolithRegistry, readRegistry, run } from './lib.ts';
 
-const SNAPSHOT = join(ROOT, 'contracts/monolith/openapi.json');
+export const SNAPSHOT = join(ROOT, 'contracts/monolith/openapi.json');
 const SOURCE = join(ROOT, 'contracts/monolith/source.json');
 const OPERATIONS = join(ROOT, 'src/platform/api/generated/operations.ts');
 const METHODS = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
 
-interface OpenApiDocument {
+export interface OpenApiDocument {
   security?: unknown[];
   paths: Record<string, Record<string, { security?: unknown[] } | unknown>>;
 }
@@ -70,8 +74,79 @@ function fetchDocument(url: string, ca: Buffer): Promise<string> {
   });
 }
 
-const generate = (mode: 'generate' | 'check') =>
-  run('pnpm', ['--silent', '--filter', '@gaw/api-codegen', mode]);
+const TEMPLATE_FIXTURE = join(ROOT, 'templates/feature/contract/sample-items.openapi.json');
+const TEMPLATE_SCHEMA = join(ROOT, 'templates/feature/contract/schema.d.ts');
+const TEMPLATE_OPERATIONS = join(ROOT, 'templates/feature/contract/operations.ts');
+const APP_SCHEMA = join(ROOT, 'src/platform/api/generated/schema.d.ts');
+
+/** openapi-typescript from its own package (TypeScript 6 peer kept away from the app). */
+function codegen(input: string, output: string, check = false): void {
+  run('pnpm', [
+    '--silent',
+    '--filter',
+    '@gaw/api-codegen',
+    'exec',
+    'openapi-typescript',
+    input,
+    '-o',
+    output,
+    ...(check ? ['--check'] : []),
+  ]);
+}
+
+/**
+ * The app's document plus the template's fixture: what templates/feature compiles against.
+ * `rename` turns sample-items into another feature's names (template:verify).
+ */
+export function mergeContract(
+  app: OpenApiDocument,
+  rename: (text: string) => string = (t) => t,
+): OpenApiDocument {
+  const fixture = JSON.parse(rename(readFileSync(TEMPLATE_FIXTURE, 'utf8'))) as OpenApiDocument & {
+    components: { schemas: Record<string, unknown> };
+  };
+  const base = app as OpenApiDocument & { components: { schemas: Record<string, unknown> } };
+  return {
+    ...base,
+    paths: { ...base.paths, ...fixture.paths },
+    components: {
+      ...base.components,
+      schemas: { ...base.components.schemas, ...fixture.components.schemas },
+    },
+  } as OpenApiDocument;
+}
+
+/** Writes the generated types and operations table of a document. */
+export function regenerate(
+  document: OpenApiDocument,
+  target: { schema: string; operations: string },
+): void {
+  const input = join(mkdtempSync(join(tmpdir(), 'gaw-api-')), 'openapi.json');
+  writeFileSync(input, JSON.stringify(document));
+  codegen(input, target.schema);
+  writeFileSync(target.operations, operationsTable(document));
+}
+
+function checkGenerated(
+  document: OpenApiDocument,
+  target: { schema: string; operations: string },
+): string[] {
+  const problems: string[] = [];
+  const input = join(mkdtempSync(join(tmpdir(), 'gaw-api-')), 'openapi.json');
+  writeFileSync(input, JSON.stringify(document));
+  try {
+    codegen(input, target.schema, true);
+  } catch {
+    problems.push(`${target.schema.slice(ROOT.length)} is stale: run pnpm api:sync`);
+  }
+  if (readFileSync(target.operations, 'utf8') !== operationsTable(document)) {
+    problems.push(`${target.operations.slice(ROOT.length)} is stale: run pnpm api:sync`);
+  }
+  return problems;
+}
+
+export const APP_TARGET = { schema: APP_SCHEMA, operations: OPERATIONS };
+export const TEMPLATE_TARGET = { schema: TEMPLATE_SCHEMA, operations: TEMPLATE_OPERATIONS };
 
 async function sync(allowDirty: boolean): Promise<void> {
   const dir = monolithDir();
@@ -98,24 +173,19 @@ async function sync(allowDirty: boolean): Promise<void> {
       2,
     )}\n`,
   );
-  generate('generate');
-  writeFileSync(OPERATIONS, operationsTable(document));
+  regenerate(document, APP_TARGET);
+  regenerate(mergeContract(document), TEMPLATE_TARGET);
   console.log(
     `api:sync: ${Object.keys(document.paths).length} paths from ${commit.slice(0, 7)}${dirty ? ' (dirty)' : ''}`,
   );
 }
 
 function check(): void {
-  const problems: string[] = [];
   const document = JSON.parse(readFileSync(SNAPSHOT, 'utf8')) as OpenApiDocument;
-  try {
-    generate('check');
-  } catch {
-    problems.push('src/platform/api/generated/schema.d.ts is stale: run pnpm api:sync');
-  }
-  if (readFileSync(OPERATIONS, 'utf8') !== operationsTable(document)) {
-    problems.push('src/platform/api/generated/operations.ts is stale: run pnpm api:sync');
-  }
+  const problems = [
+    ...checkGenerated(document, APP_TARGET),
+    ...checkGenerated(mergeContract(document), TEMPLATE_TARGET),
+  ];
   const source = JSON.parse(readFileSync(SOURCE, 'utf8')) as { dirty?: boolean; commit?: string };
   if (source.dirty !== false || !/^[0-9a-f]{40}$/.test(source.commit ?? '')) {
     problems.push(

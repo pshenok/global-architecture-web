@@ -23,7 +23,7 @@
   "scripts": {
     "dev": "node tools/dev.ts",
     "build": "next build && node tools/check-build.ts",
-    "typecheck": "next typegen && tsc -p tsconfig.json && tsc -p tools/tsconfig.json",
+    "typecheck": "next typegen && tsc -p tsconfig.json && tsc -p templates/feature/tsconfig.json && tsc -p tools/tsconfig.json",
     "lint": "next typegen && biome ci . && node tools/check-access.ts && node tools/check-boundaries.ts && node tools/check-text.ts && oxlint && knip",
     "format": "biome check --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm api:check",
@@ -32,7 +32,9 @@
     "start": "node tools/serve.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:coverage": "vitest run --project unit --coverage"
+    "test:coverage": "vitest run --project unit --coverage",
+    "new:feature": "node tools/new-feature.ts",
+    "template:verify": "node tools/verify-template.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
