@@ -78,6 +78,41 @@ const isActionsFile = (file: string) =>
 const isFeature = (file: string) =>
   file.startsWith('src/features/') || file.startsWith('templates/feature/feature/');
 
+/**
+ * `export const camelCase = defineAction({ access: '<identity|user|admin>', ... })`: one
+ * const declarator, a direct call with one object literal whose `access` is a literal.
+ */
+function isActionExport(statement: Node, source: SourceFile): boolean {
+  if (statement.kind !== SyntaxKind.VariableStatement) return false;
+  const list = (
+    statement as unknown as { declarationList: Node & { declarations: readonly Node[] } }
+  ).declarationList;
+  if (!/^const\b/.test(list.getText(source)) || list.declarations.length !== 1) return false;
+  const declaration = list.declarations[0] as unknown as { name: Node; initializer?: Node };
+  if (!/^[a-z][A-Za-z0-9]*$/.test(declaration.name.getText(source))) return false;
+  const call = declaration.initializer as
+    | (Node & { expression?: Node; arguments?: readonly Node[] })
+    | undefined;
+  if (
+    call?.kind !== SyntaxKind.CallExpression ||
+    call.expression?.getText(source) !== 'defineAction' ||
+    call.arguments?.length !== 1
+  ) {
+    return false;
+  }
+  const spec = call.arguments[0] as Node & {
+    properties?: readonly (Node & { name?: Node; initializer?: Node })[];
+  };
+  if (spec.kind !== SyntaxKind.ObjectLiteralExpression) return false;
+  const access = spec.properties?.find(
+    (p) => p.kind === SyntaxKind.PropertyAssignment && p.name?.getText(source) === 'access',
+  );
+  return (
+    access?.initializer?.kind === SyntaxKind.StringLiteral &&
+    ['identity', 'user', 'admin'].includes(textOf(access.initializer) ?? '')
+  );
+}
+
 export function checkFile(file: string, source: SourceFile, as = file): string[] {
   const problems: string[] = [];
   const at = (node: Node) => `${file}:${lineOf(source, node)}`;
@@ -121,16 +156,12 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
       }
     }
     for (const statement of source.statements) {
-      const text = statement.getText(source);
-      if (!/^export\b/.test(text)) continue;
-      const match =
-        /^export\s+const\s+[a-z][A-Za-z0-9]*\s*=\s*defineAction\(\s*\{\s*access:\s*'(identity|user|admin)'/.exec(
-          text,
-        );
-      if (!match)
+      if (!/^export\b/.test(statement.getText(source))) continue;
+      if (!isActionExport(statement, source)) {
         problems.push(
-          `${at(statement)}: actions.ts exports only \`export const x = defineAction({ access: '<identity|user|admin>', ... })\` (S4)`,
+          `${at(statement)}: actions.ts exports only \`export const x = defineAction({ access: '<identity|user|admin>', ... })\`, one per statement (S4)`,
         );
+      }
     }
   }
 
@@ -254,14 +285,23 @@ function routeOf(file: string): string {
 function checkRoutes(read: (path: string) => SourceFile | undefined): string[] {
   const problems: string[] = [];
   const app = join(ROOT, 'src/app');
-  const all = [...files(app, /\.(ts|tsx)$/)].map(repoPath);
-  const pages = all.filter((f) => /\/page\.tsx$/.test(f));
-  const handlers = all.filter((f) => /\/route\.ts$/.test(f));
+  const all = [...files(app, /\.(ts|tsx|js|jsx|mjs|cjs)$/)].map(repoPath);
+  const pages = all.filter((f) => /\/page\.[jt]sx?$/.test(f));
+  const handlers = all.filter((f) => /\/route\.[jt]sx?$/.test(f));
   const listed = (
     JSON.parse(readFileSync(join(ROOT, 'security/public-routes.json'), 'utf8')) as {
       routes: ListedRoute[];
     }
   ).routes;
+
+  // Every file Next bundles must be readable by the guardrails: TypeScript only.
+  for (const root of ['src', 'templates/feature']) {
+    for (const path of files(join(ROOT, root), /\.(js|jsx|mjs|cjs)$/)) {
+      problems.push(
+        `${repoPath(path)}: TypeScript only under ${root}; the guardrails do not read JavaScript (S2)`,
+      );
+    }
+  }
 
   // S1
   const known = new Map([...pages, ...handlers].map((f) => [routeOf(f), f]));
@@ -276,7 +316,7 @@ function checkRoutes(read: (path: string) => SourceFile | undefined): string[] {
       );
       continue;
     }
-    if (file.endsWith('route.ts')) {
+    if (/\/route\.[jt]sx?$/.test(file)) {
       const exported = exportedMethods(read(join(ROOT, file)));
       if (JSON.stringify([...(entry.methods ?? [])].sort()) !== JSON.stringify(exported.sort())) {
         problems.push(
@@ -307,8 +347,8 @@ function checkRoutes(read: (path: string) => SourceFile | undefined): string[] {
   }
 
   // S6
-  for (const loading of all.filter((f) => /\/loading\.tsx$/.test(f))) {
-    const dir = loading.replace(/\/loading\.tsx$/, '');
+  for (const loading of all.filter((f) => /\/loading\.[jt]sx?$/.test(f))) {
+    const dir = loading.replace(/\/loading\.[jt]sx?$/, '');
     if (
       pages.some((page) => page.startsWith(`${dir}/`) && /\[[^\]]+\]/.test(page.slice(dir.length)))
     ) {

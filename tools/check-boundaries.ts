@@ -120,7 +120,10 @@ function resolveSpecifier(specifier: string, from: string): string | undefined {
   // The template compiles in place: its alias points at templates/feature/feature.
   const template = /^@\/features\/sample-items(\/.*)?$/.exec(specifier);
   if (template) return `${TEMPLATE_FEATURE.dir}${template[1] ?? ''}`;
-  if (specifier.startsWith('@/')) return `src/${specifier.slice(2)}`;
+  if (specifier.startsWith('@/'))
+    return normalize(join('src', specifier.slice(2)))
+      .split('\\')
+      .join('/');
   if (specifier.startsWith('.'))
     return normalize(join(dirname(from), specifier))
       .split('\\')
@@ -188,6 +191,7 @@ const SINGLE_OWNERS: readonly [string, (file: string) => boolean][] = [
 ];
 
 const isSpec = (file: string) => /\.spec\.tsx?$/.test(file);
+const API_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function checkFile(file: string, source: SourceFile, as = file): string[] {
   const problems: string[] = [];
@@ -230,8 +234,69 @@ export function checkFile(file: string, source: SourceFile, as = file): string[]
     }
   }
 
+  // R8: in a feature, the client is imported by name and used only as
+  // api().<METHOD>('<literal path>', ...): no aliases, no stored clients, no other methods.
+  const featureCode = here.slice === 'feature' && !spec;
+  if (featureCode) {
+    for (const statement of source.statements) {
+      if (statement.kind !== SyntaxKind.ImportDeclaration) continue;
+      const declaration = statement as unknown as {
+        moduleSpecifier: Node;
+        importClause?: { namedBindings?: Node & { elements?: readonly { propertyName?: Node }[] } };
+      };
+      if (textOf(declaration.moduleSpecifier) !== '@/platform/api') continue;
+      const bindings = declaration.importClause?.namedBindings;
+      if (
+        bindings?.kind === SyntaxKind.NamespaceImport ||
+        bindings?.elements?.some((e) => e.propertyName !== undefined)
+      ) {
+        problems.push(
+          `${at(statement)}: import from @/platform/api by name, without renaming (R8)`,
+        );
+      }
+    }
+  }
+  const usesApi = imports.some(
+    (ref) => ref.specifier === '@/platform/api' && ref.names.includes('api'),
+  );
+
   // R8 (API ownership) and R9 (the global fetch).
   const visit = (node: Node): void => {
+    if (
+      featureCode &&
+      usesApi &&
+      node.kind === SyntaxKind.Identifier &&
+      node.getText(source) === 'api'
+    ) {
+      const parent = (
+        node as unknown as {
+          parent: Node & { name?: Node; expression?: Node; arguments?: readonly Node[] };
+        }
+      ).parent;
+      const isPropertyName =
+        ((parent.kind === SyntaxKind.PropertyAccessExpression ||
+          parent.kind === SyntaxKind.PropertyAssignment) &&
+          parent.name === node) ||
+        parent.kind === SyntaxKind.ImportSpecifier;
+      if (!isPropertyName) {
+        const member = (parent as unknown as { parent: Node & { name?: Node; expression?: Node } })
+          .parent;
+        const outer = (member as unknown as { parent: Node & { expression?: Node } }).parent;
+        const direct =
+          parent.kind === SyntaxKind.CallExpression &&
+          parent.expression === node &&
+          (parent.arguments?.length ?? 0) === 0 &&
+          member.kind === SyntaxKind.PropertyAccessExpression &&
+          member.expression === parent &&
+          API_METHODS.has(member.name?.getText(source) ?? '') &&
+          outer.kind === SyntaxKind.CallExpression &&
+          outer.expression === member;
+        if (!direct)
+          problems.push(
+            `${at(node)}: call the API only as api().<GET|POST|PUT|PATCH|DELETE>('<literal path>', ...) (R8)`,
+          );
+      }
+    }
     if (node.kind === SyntaxKind.CallExpression) {
       const call = node as unknown as { expression: Node; arguments: readonly Node[] };
       const callee = call.expression.getText(source);
@@ -272,6 +337,14 @@ function checkImport(
   const problems: string[] = [];
   const { specifier } = ref;
   if (specifier === '<computed>') return ['import() takes a literal specifier'];
+  if (
+    specifier.startsWith('@/') &&
+    specifier.split('/').some((segment) => segment === '.' || segment === '..')
+  ) {
+    return [
+      `alias imports name their target directly, without . or .. segments: ${specifier} (R1)`,
+    ];
+  }
   const targetPath = resolveSpecifier(specifier, as);
   const target = targetPath === undefined ? ({ slice: 'external' } as Where) : locate(targetPath);
   const pkg = targetPath === undefined ? packageOf(specifier) : undefined;
