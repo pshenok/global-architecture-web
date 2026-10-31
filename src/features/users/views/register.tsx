@@ -1,10 +1,10 @@
 import 'server-only';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
+import { localPath } from '@/kernel/local-path';
 import { getOptionalUser, getSignInEmail, requireCaller } from '@/platform/session';
 import { PageHeader } from '@/ui/page-header';
 import { registerUser } from '../actions';
-import { safeLocalPath } from '../model/paths';
 import { RegisterForm } from '../ui/register-form';
 
 export async function RegisterView({
@@ -14,7 +14,7 @@ export async function RegisterView({
 }) {
   await requireCaller();
   const { returnTo } = await searchParams;
-  const target = safeLocalPath(typeof returnTo === 'string' ? returnTo : undefined);
+  const target = localPath(typeof returnTo === 'string' ? returnTo : undefined) ?? '/houses';
   if (await getOptionalUser()) redirect(target as Route);
   return (
     <>

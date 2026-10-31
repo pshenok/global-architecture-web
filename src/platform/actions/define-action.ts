@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { z } from 'zod';
 import type { FormState } from '@/kernel/form-state';
+import { localPath } from '@/kernel/local-path';
 import type { ApiProblem, ProblemCode } from '@/kernel/problem-codes';
 import type { ApiResult } from '@/platform/api/call';
 import { endSessionUrl } from '@/platform/auth/end-session';
@@ -237,16 +238,13 @@ export function defineAction<S extends z.ZodObject, F extends Extract<keyof z.in
       case 'refresh':
         refresh();
         return { status: 'success', ...(outcome.message ? { message: outcome.message } : {}) };
-      case 'redirect':
+      case 'redirect': {
         // Same-site paths only: an action never sends anyone elsewhere (logout has its own path).
-        if (
-          !outcome.to.startsWith('/') ||
-          outcome.to.startsWith('//') ||
-          outcome.to.includes('\\')
-        ) {
+        const path = localPath(outcome.to);
+        if (path === undefined)
           throw new Error('defineAction: redirect outcomes take a same-site path');
-        }
-        return redirect(outcome.to as Route);
+        return redirect(path as Route);
+      }
       case 'logout': {
         const session = await getSession();
         clearSession(await cookies());

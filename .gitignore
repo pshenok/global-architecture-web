@@ -16,3 +16,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /tests/e2e/.auth/
+
+# Claude Code subagents keep their own notes here
+.claude/agent-memory/

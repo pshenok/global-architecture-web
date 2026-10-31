@@ -11,7 +11,7 @@ const noStore = { 'cache-control': 'no-store' };
 /** GET /auth/login?returnTo=: starts the code flow (PKCE S256, state, nonce in a sealed cookie). */
 export async function handleLogin(request: Request): Promise<Response> {
   const env = getEnv();
-  const returnTo = safeReturnTo(new URL(request.url).searchParams.get('returnTo'), env.APP_ORIGIN);
+  const returnTo = safeReturnTo(new URL(request.url).searchParams.get('returnTo'));
   let config: client.Configuration;
   try {
     config = await getOidcConfig();

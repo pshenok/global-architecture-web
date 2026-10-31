@@ -59,4 +59,19 @@ test.describe('access', () => {
     await guest.getByRole('link', { name: 'Bookings' }).click();
     await expect(guest).toHaveURL(/127\.0\.0\.1:9090\/authorize/);
   });
+
+  test('registration never forwards to another site, however returnTo is written', async ({
+    browser,
+  }) => {
+    const guest = await as(browser, 'guest');
+    for (const target of [
+      '/\t/evil.test/x',
+      '//evil.test/x',
+      '/\\evil.test',
+      'https://evil.test/x',
+    ]) {
+      await guest.goto(`/register?returnTo=${encodeURIComponent(target)}`);
+      await expect(guest).toHaveURL(/^http:\/\/localhost:9301\/houses/);
+    }
+  });
 });

@@ -1,9 +1,9 @@
 'use server';
 
+import { localPath } from '@/kernel/local-path';
 import { defineAction } from '@/platform/actions';
 import * as users from './data/users.gateway';
 import { NoInput, RegisterForm, RenameForm, USER_MESSAGES, UserIdForm } from './model/forms';
-import { safeLocalPath } from './model/paths';
 
 /** Registers the login (identity access: it has no user yet). A double submit is fine. */
 export const registerUser = defineAction({
@@ -14,7 +14,7 @@ export const registerUser = defineAction({
     const result = await users.registerUser(caller, fullName);
     const done = {
       kind: 'redirect' as const,
-      to: safeLocalPath(returnTo),
+      to: localPath(returnTo) ?? '/houses',
       shell: 'stale' as const,
     };
     if (!result.ok && result.problem.code === 'USER_ALREADY_REGISTERED') return done;
