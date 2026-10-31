@@ -1,4 +1,4 @@
-import { expect, test } from '../support/fixtures.ts';
+import { as, expect, test } from '../support/fixtures.ts';
 import { signIn } from '../support/sign-in.ts';
 import { runId } from '../support/stack.ts';
 
@@ -48,5 +48,15 @@ test.describe('access', () => {
     await expect(page).toHaveURL(/\/auth\/error\?code=IDP_ACCESS_DENIED/);
     await expect(page.getByText('The sign-in was cancelled.')).toBeVisible();
     await signIn(page, `e2e-${runId()}-after-cancel`);
+  });
+
+  test('a session that ended before a client-side navigation still lands on sign-in', async ({
+    browser,
+  }) => {
+    const guest = await as(browser, 'guest');
+    await guest.goto('/houses');
+    await guest.context().clearCookies();
+    await guest.getByRole('link', { name: 'Bookings' }).click();
+    await expect(guest).toHaveURL(/127\.0\.0\.1:9090\/authorize/);
   });
 });
