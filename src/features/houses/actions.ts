@@ -7,7 +7,8 @@ import {
   EditHouseForm,
   HOUSE_API_FIELDS,
   HouseForm,
-  toHouseBody,
+  toCreateHouseBody,
+  toUpdateHouseBody,
 } from './model/house-form';
 import { HOUSE_MESSAGES } from './model/messages';
 
@@ -17,7 +18,7 @@ export const createHouse = defineAction({
   fields: HOUSE_API_FIELDS,
   messages: HOUSE_MESSAGES,
   run: async ({ caller }, input) => {
-    const result = await houses.createHouse(caller, toHouseBody(input));
+    const result = await houses.createHouse(caller, toCreateHouseBody(input));
     return result.ok ? { kind: 'redirect', to: `/houses/${result.value.id}` } : result;
   },
 });
@@ -28,7 +29,7 @@ export const updateHouse = defineAction({
   fields: HOUSE_API_FIELDS,
   messages: HOUSE_MESSAGES,
   run: async ({ caller }, { id, ...input }) => {
-    const result = await houses.updateHouse(caller, id, toHouseBody(input));
+    const result = await houses.updateHouse(caller, id, toUpdateHouseBody(input));
     return result.ok ? { kind: 'redirect', to: `/houses/${id}` } : result;
   },
 });

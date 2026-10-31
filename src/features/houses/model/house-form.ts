@@ -7,7 +7,7 @@ import type { House } from './house';
  * mirror these rules; this parse is the authoritative one, and the API's own validation
  * comes back through HOUSE_API_FIELDS.
  */
-const HouseFields = z.object({
+const BaseFields = z.object({
   title: z.string().trim().min(1, 'Enter a title').max(200, 'At most 200 characters'),
   description: z.string().trim().max(5000, 'At most 5000 characters').default(''),
   line1: z.string().trim().min(1, 'Enter the street address').max(200, 'At most 200 characters'),
@@ -17,8 +17,6 @@ const HouseFields = z.object({
     .trim()
     .regex(/^[A-Za-z]{2}$/, 'Two letters, e.g. UA')
     .transform((code) => code.toUpperCase()),
-  currencyCode: z.enum(CURRENCIES as [string, ...string[]], { error: 'Choose a currency' }),
-  price: z.string().trim().min(1, 'Enter a price per night'),
   maxGuests: z
     .string()
     .min(1, 'Enter how many guests')
@@ -32,8 +30,13 @@ const HouseFields = z.object({
     ),
 });
 
-const priceFits = (form: { price: string; currencyCode: string }, ctx: z.RefinementCtx) => {
-  if (toAmountMinor(form.price, form.currencyCode) === undefined) {
+const CurrencyCode = z.enum(CURRENCIES as [string, ...string[]], { error: 'Choose a currency' });
+
+const priceFits = (
+  form: { price?: string | undefined; currencyCode?: string | undefined },
+  ctx: z.RefinementCtx,
+) => {
+  if (toAmountMinor(form.price ?? '', form.currencyCode ?? '') === undefined) {
     ctx.addIssue({
       code: 'custom',
       path: ['price'],
@@ -42,12 +45,35 @@ const priceFits = (form: { price: string; currencyCode: string }, ctx: z.Refinem
   }
 };
 
-export const HouseForm = HouseFields.superRefine(priceFits);
-export const EditHouseForm = HouseFields.extend({ id: z.uuid() }).superRefine(priceFits);
+export const HouseForm = BaseFields.extend({
+  currencyCode: CurrencyCode,
+  price: z.string().trim().min(1, 'Enter a price per night'),
+}).superRefine(priceFits);
+
+/**
+ * Editing. A house priced in a currency this form does not offer keeps its price
+ * (`keepPrice`): the form shows it read-only and the update leaves it out, rather than
+ * the browser falling back to the first currency and repricing the house.
+ */
+export const EditHouseForm = BaseFields.extend({
+  id: z.uuid(),
+  keepPrice: z.literal('true').optional(),
+  currencyCode: z.string().optional(),
+  price: z.string().trim().optional(),
+}).superRefine((form, ctx) => {
+  if (form.keepPrice) return;
+  if (!CurrencyCode.safeParse(form.currencyCode).success) {
+    ctx.addIssue({ code: 'custom', path: ['currencyCode'], message: 'Choose a currency' });
+    return;
+  }
+  priceFits(form, ctx);
+});
 export const DeleteHouseForm = z.object({ id: z.uuid() });
 
-export type HouseFormInput = z.input<typeof HouseForm>;
-export type HouseFormField = Extract<keyof HouseFormInput, string>;
+/** Whether this form can edit a price in this currency. */
+export const priceEditable = (currencyCode: string) => CURRENCIES.includes(currencyCode);
+
+export type HouseFormField = Extract<keyof z.input<typeof HouseForm>, string>;
 
 /** API error fields (dotted) -> form fields. */
 export const HOUSE_API_FIELDS: Readonly<Record<string, HouseFormField>> = {
@@ -61,16 +87,30 @@ export const HOUSE_API_FIELDS: Readonly<Record<string, HouseFormField>> = {
   maxGuests: 'maxGuests',
 };
 
-export function toHouseBody(form: z.output<typeof HouseFields>) {
-  const nightlyPrice: Money = {
-    currencyCode: form.currencyCode,
-    amountMinor: toAmountMinor(form.price, form.currencyCode) as number,
-  };
+function nightlyPriceOf(form: {
+  price?: string | undefined;
+  currencyCode?: string | undefined;
+}): Money {
+  const currencyCode = form.currencyCode ?? '';
+  return { currencyCode, amountMinor: toAmountMinor(form.price ?? '', currencyCode) as number };
+}
+
+export function toCreateHouseBody(form: z.output<typeof HouseForm>) {
   return {
     title: form.title,
     description: form.description,
     address: { line1: form.line1, city: form.city, countryCode: form.countryCode },
-    nightlyPrice,
+    nightlyPrice: nightlyPriceOf(form),
+    maxGuests: form.maxGuests,
+  };
+}
+
+export function toUpdateHouseBody(form: Omit<z.output<typeof EditHouseForm>, 'id'>) {
+  return {
+    title: form.title,
+    description: form.description,
+    address: { line1: form.line1, city: form.city, countryCode: form.countryCode },
+    ...(form.keepPrice ? {} : { nightlyPrice: nightlyPriceOf(form) }),
     maxGuests: form.maxGuests,
   };
 }

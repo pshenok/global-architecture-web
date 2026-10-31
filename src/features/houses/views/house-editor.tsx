@@ -1,12 +1,14 @@
 import 'server-only';
 import { TrashIcon } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { DEFAULT_LOCALE } from '@/kernel/locale';
+import { formatMoney } from '@/kernel/money';
 import { requireUser } from '@/platform/session';
 import { ConfirmDialog } from '@/ui/confirm-dialog';
 import { PageHeader } from '@/ui/page-header';
 import { createHouse, deleteHouse, updateHouse } from '../actions';
 import { canEdit } from '../model/house';
-import { toFormValues } from '../model/house-form';
+import { priceEditable, toFormValues } from '../model/house-form';
 import { HouseForm } from '../ui/house-form';
 import { loadHouse } from './house-detail';
 
@@ -53,6 +55,9 @@ export async function EditHouseView({ params }: { params: Promise<{ id: string }
       />
       <HouseForm
         action={updateHouse}
+        {...(priceEditable(house.nightlyPrice.currencyCode)
+          ? {}
+          : { lockedPrice: formatMoney(house.nightlyPrice, DEFAULT_LOCALE) })}
         houseId={house.id}
         initial={toFormValues(house)}
         submitLabel="Save changes"

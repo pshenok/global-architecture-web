@@ -80,4 +80,45 @@ describe('HouseForm', () => {
     await expectAccessible();
     await page.screenshot({ save: false });
   });
+
+  it('keeps the chosen currency after a failed submit', async () => {
+    const screen = await render(
+      <main>
+        <h1>List a house</h1>
+        <HouseForm
+          action={failing}
+          initial={{ currencyCode: 'USD', maxGuests: '2' }}
+          submitLabel="List house"
+        />
+      </main>,
+    );
+    await screen.getByLabelText('Title', { exact: true }).fill('Cabin');
+    await screen.getByLabelText('Street address').fill('1 Shore Rd');
+    await screen.getByLabelText('City').fill('Odesa');
+    await screen.getByLabelText('Country code').fill('UA');
+    await screen.getByLabelText('Price per night').fill('1500.5');
+    await screen.getByLabelText('Currency').selectOptions('JPY');
+    await screen.getByRole('button', { name: 'List house' }).click();
+    await expect.element(screen.getByRole('alert')).toBeVisible();
+    await expect.element(screen.getByLabelText('Currency')).toHaveValue('JPY');
+  });
+
+  it('shows a price it cannot edit read-only, and does not post it', async () => {
+    const screen = await render(
+      <main>
+        <h1>Edit</h1>
+        <HouseForm
+          action={failing}
+          houseId="01890a5d-ac96-774b-bcce-b302099a8057"
+          lockedPrice="120000 SEK (minor units)"
+          initial={{ title: 'Cabin', currencyCode: 'SEK', maxGuests: '2' }}
+          submitLabel="Save changes"
+        />
+      </main>,
+    );
+    await expect.element(screen.getByLabelText('Price per night')).toBeDisabled();
+    expect(screen.getByLabelText('Currency').elements()).toHaveLength(0);
+    expect(document.querySelector('input[name="keepPrice"]')?.getAttribute('value')).toBe('true');
+    expect(document.querySelector('input[name="price"]')).toBeNull();
+  });
 });

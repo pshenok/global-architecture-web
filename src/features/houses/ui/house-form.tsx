@@ -9,18 +9,21 @@ import { SubmitButton } from '@/ui/form/submit-button';
 import { useFocusFirstInvalid } from '@/ui/hooks/use-focus-first-invalid';
 import type { HouseFormField } from '../model/house-form';
 
-type Field = HouseFormField | 'id';
+type Field = HouseFormField | 'id' | 'keepPrice';
 
 /** Create and edit: the Server Action arrives as a prop from the server parent. */
 export function HouseForm({
   action,
   initial,
   houseId,
+  lockedPrice,
   submitLabel,
 }: {
   action: (state: FormState<Field>, form: FormData) => Promise<FormState<Field>>;
   initial: Readonly<Partial<Record<HouseFormField, string>>>;
   houseId?: string;
+  /** The price as text when this form cannot edit it (a currency it does not offer). */
+  lockedPrice?: string;
   submitLabel: string;
 }) {
   const [state, formAction] = useActionState<FormState<Field>, FormData>(action, IDLE);
@@ -81,21 +84,42 @@ export function HouseForm({
         />
       </div>
       <div className="grid gap-5 sm:grid-cols-3">
-        <TextField
-          name="price"
-          label="Price per night"
-          required
-          inputMode="decimal"
-          defaultValue={value('price')}
-          error={errors.price}
-        />
-        <SelectField
-          name="currencyCode"
-          label="Currency"
-          options={CURRENCIES.map((code) => ({ value: code, label: code }))}
-          defaultValue={value('currencyCode') || 'USD'}
-          error={errors.currencyCode}
-        />
+        {lockedPrice ? (
+          <>
+            <input type="hidden" name="keepPrice" value="true" />
+            <div className="sm:col-span-2">
+              <TextField
+                name="price-display"
+                label="Price per night"
+                value={lockedPrice}
+                readOnly
+                disabled
+                hint="This currency cannot be edited here; the price stays as it is."
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <TextField
+              name="price"
+              label="Price per night"
+              required
+              inputMode="decimal"
+              defaultValue={value('price')}
+              error={errors.price}
+            />
+            {/* Keyed by the echoed value: React resets a form after an action, and a select
+                only takes a new default when it mounts. */}
+            <SelectField
+              key={value('currencyCode') || 'USD'}
+              name="currencyCode"
+              label="Currency"
+              options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+              defaultValue={value('currencyCode') || 'USD'}
+              error={errors.currencyCode}
+            />
+          </>
+        )}
         <TextField
           name="maxGuests"
           label="Guests"

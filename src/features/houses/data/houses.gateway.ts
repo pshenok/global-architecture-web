@@ -11,7 +11,6 @@ import {
 } from '@/platform/api';
 import type { Caller } from '@/platform/session';
 import type { House } from '../model/house';
-import type { toHouseBody } from '../model/house-form';
 
 type ApiHouse = components['schemas']['House'];
 
@@ -62,7 +61,7 @@ export async function getHouse(id: string): Promise<ApiResult<House>> {
 
 export async function createHouse(
   caller: Caller,
-  body: ReturnType<typeof toHouseBody>,
+  body: components['schemas']['CreateHouseBody'],
 ): Promise<ApiResult<House>> {
   return settle(
     api().POST('/v1/houses', { body, ...(await withCaller(caller, 'write')) }),
@@ -73,7 +72,7 @@ export async function createHouse(
 export async function updateHouse(
   caller: Caller,
   id: string,
-  body: ReturnType<typeof toHouseBody>,
+  body: components['schemas']['UpdateHouseBody'],
 ): Promise<ApiResult<House>> {
   return settle(
     api().PATCH('/v1/houses/{id}', {
