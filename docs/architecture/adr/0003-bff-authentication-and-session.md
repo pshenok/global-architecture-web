@@ -81,5 +81,5 @@ Next 16.4.3 constraints:
 - The refresh dedupe is per process. Production must run one replica, use sticky sessions, or set an IdP refresh-reuse grace of at least 60 s.
 - Session max age equals the refresh token's absolute lifetime.
 - An IdP whose tokens exceed the 3800-byte cap fails login loudly. Supporting it needs an ADR change, such as a server-side store behind the same read and write API.
-- The monolith carries a prerequisite PR (dev IdP code flow, client registry, its own e2e, ADR-0004 local-development notes). Until it merges, `contracts/monolith/source.json` pins the PR's commit, which CI checks out.
+- The monolith carried a prerequisite PR (dev IdP code flow, client registry, its own e2e, ADR-0004 local-development notes), merged as monolith PR #1; `contracts/monolith/source.json` pins a commit on the monolith's main, which CI checks out.
 - Dev-IdP restarts drop refresh tokens. Web sessions then end at their next refresh.
